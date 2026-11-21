@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/token.revoked.v1.schema.json",
+  "title": "token.revoked.v1",
+  "description": "A CLI token was revoked",
+  "x-topic": "lp.identity",
+  "x-key": "token_id",
+  "x-producer": "identity",
+  "x-consumers": [
+    "gateway"
+  ],
+  "type": "object",
+  "required": [
+    "token_id"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "token_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}

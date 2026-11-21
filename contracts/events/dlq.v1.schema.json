@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/dlq.v1.schema.json",
+  "title": "dlq.v1",
+  "description": "A message that failed processing 5 times",
+  "x-topic": "events.dlq",
+  "x-key": "original key",
+  "x-producer": "any consumer",
+  "x-consumers": [
+    "(alerting, manual replay)"
+  ],
+  "type": "object",
+  "required": [
+    "original_topic",
+    "partition",
+    "offset",
+    "consumer",
+    "error",
+    "payload_b64",
+    "failed_at"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "original_topic": {
+      "type": "string"
+    },
+    "partition": {
+      "type": "integer"
+    },
+    "offset": {
+      "type": "integer"
+    },
+    "consumer": {
+      "type": "string"
+    },
+    "error": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "payload_b64": {
+      "type": "string"
+    },
+    "failed_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

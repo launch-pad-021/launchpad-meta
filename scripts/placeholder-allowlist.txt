@@ -1,0 +1,58 @@
+# path glob	pattern (full placeholder match)	reason	expiry milestone (inclusive)
+AGENTS.md	<n>	Milestone command example	M1
+CLAUDE.md	<n>	Milestone command example	M1
+README.md	<service>	Service spec path notation	M1
+bootstrap/KICKOFF.md	<org>	Owner supplies the GitHub organization when cloning	A0
+bootstrap/KICKOFF.md	<n>	Issue, PR, and milestone command examples	M1
+bootstrap/agent-kit/README.md	<skill>	Plugin skill invocation example	M1
+bootstrap/agent-kit/.claude-plugin/marketplace.json	LP_ORG	Starter manifest owner to set in A0	A0
+bootstrap/agent-kit/.github/workflows/agent-implement.yml	LP_ORG	GitHub organization variable reference	M1
+bootstrap/agent-kit/.github/workflows/agent-review.yml	LP_ORG	GitHub organization variable reference	M1
+bootstrap/agent-kit/plugins/launchpad/.claude-plugin/plugin.json	LP_ORG	Starter manifest author to set in A0	A0
+bootstrap/agent-kit/plugins/launchpad/agents/implementer.md	<(?:issue|link|service|slug)>	Agent branch, handoff, and spec path notation	M1
+bootstrap/agent-kit/plugins/launchpad/agents/planner.md	<milestone>	Milestone plan branch and file notation	M1
+bootstrap/agent-kit/plugins/launchpad/skills/implement-issue/SKILL.md	<(?:issue|slug)>	Agent branch naming example	M1
+bootstrap/agent-kit/plugins/launchpad/skills/launchpad-review-gate/SKILL.md	<base>	Git diff base branch argument	M1
+bootstrap/agent-kit/plugins/launchpad/skills/spec-to-issues/SKILL.md	<milestone>	Milestone plan path and PR title notation	M1
+bootstrap/launchpad-meta/CLAUDE.md	<n>	Milestone command example	M1
+bootstrap/launchpad-meta/.github/workflows/conductor.yml	LP_ORG	GitHub organization variable reference	M1
+bootstrap/launchpad-meta/.github/workflows/conductor.yml	<(?:n|repo)>	Illustrative dispatch arguments in the A0 conductor scaffold	A0
+bootstrap/launchpad-meta/.github/workflows/conductor.yml	Starter; scripts/conductor\.py is built in A0-07\.	A0 conductor implementation note	A0
+bootstrap/launchpad-meta/.github/workflows/conductor.yml	scripts/conductor\.py \(A0-07\):	A0 conductor implementation scaffold	A0
+bootstrap/templates/AGENTS.md.service	<(?:N|domain|event|issue|purpose|service|slug)>	Service template fields and event or branch naming notation	M1
+bootstrap/templates/AGENTS.md.service	<Go 1\.27 \| Rust stable \(edition 2024\) \| Python 3\.14 \+ uv \| Node 26 \+ npm>	Service template toolchain choice	M1
+bootstrap/templates/CLAUDE.md.service	<service>|<one-line purpose from specs/services/<service>\.md>	Service name and purpose fields	M1
+bootstrap/templates/CLAUDE.md.service	<go\.mod \| Cargo\.toml \| pyproject\.toml \| package\.json>|<filled by the template per language, e\.g\.>|vX\.Y\.Z	Language-specific service template fields	M1
+bootstrap/templates/CODEOWNERS.example	LP_ORG	Organization in the commented release ownership example	M1
+bootstrap/templates/PULL_REQUEST_TEMPLATE.md	<issue>	Issue number for the PR closing reference	M1
+bootstrap/templates/PULL_REQUEST_TEMPLATE.md	<!-- (?:What and why, 2-4 sentences\.|Reversible assumptions only\.|New spans / metrics / log fields\.|Issues to file\.|git diff --stat summary) -->	Author guidance for the PR fields	M1
+bootstrap/templates/ISSUE_TEMPLATE/agent-task.yml	<(?:repo-short|task)>	Issue title fields	M1
+contracts/events/catalog.md	<type>	Event schema filename notation	M1
+contracts/proto/launchpad/*/v1/*.proto	LP_ORG	Contract source organization to set when creating launchpad-contracts in M1	M1
+contracts/proto/launchpad/identity/v1/identity.proto	<service>	Service credential filename notation	M1
+contracts/proto/launchpad/projects/v1/projects.proto	<string, string>	Protobuf map type parameters	M1
+contracts/proto/launchpad/runtime/v1/runtime.proto	<string, string>	Protobuf map type parameters	M1
+specs/00-product.md	<(?:app|domain)>	Application hostname notation	M1
+specs/01-architecture.md	<(?:app|branch-slug|domain|sha|short-id)>	Hostname and branch examples	M1
+specs/03-conventions.md	<(?:8hex|AREA|METHOD|NAME|app_id|code|domain|event|issue-number|major|name|purpose|route|rpc method|service|slug|span|src dir|svc|topic|trace|type)>	Examples of conventions for names, paths, events, and telemetry	M1
+specs/04-contracts.md	<(?:name|org|service|type)>|vX\.Y\.Z	Contract generation paths, names, and version notation	M1
+specs/05-data.md	<(?:app|app_slug|port|service|short|slug)>	Database role and upstream address notation	M1
+specs/06-public-api.md	<(?:domain|token)>	API host and authorization examples	M1
+specs/07-infrastructure.md	<(?:SERVICE|app|checkout|domain|name|org|owner email|semver|svc)>	Configuration, repository, and deployment examples	M1
+specs/08-security.md	<(?:app|service|slug|user)>	Secret file, user, and registry naming examples	M1
+specs/11-delivery-plan.md	<domain>	Example deployment hostname	M1
+specs/12-agentic-system.md	<(?:CI links, logs|failures|issue|level|link|n|name|repo|reviewer|service|skill|slug)>|vX\.Y\.Z	Agent commands, naming conventions, and example status messages	M1
+specs/13-runbooks.md	<(?:slug|svc)>	Runbook command arguments	M1
+specs/14-decisions.md	<slug>	ADR filename notation	M1
+specs/15-verification-log.md	<slug>	Document filename notation	M1
+specs/16-human-setup.md	<(?:domain|n|org|your GitHub login)>|LP_ORG	Owner checklist shows the required variables and value formats	M1
+specs/services/analytics.md	<(?:derived|slug|slug_with_underscores|table)>	ClickHouse role, table, and policy examples	M1
+specs/services/builder.md	<(?:app_id|app_name|deployment_id|dir|pin|pinned|sha)>	Build arguments, registry paths, and tag notation	M1
+specs/services/cli.md	<(?:branch|deployment-id|domain)>	CLI argument and API URL examples	M1
+specs/services/gateway.md	<(?:domain|instance|uuid)>	CORS, consumer group, and metric label notation	M1
+specs/services/identity.md	<name>	Service JWT subject and credential filename notation	M1
+specs/services/ingest.md	<(?:document\.referrer|innerWidth|name|number|path\+query|props)>	Tracker payload value notation	M1
+specs/services/notifier.md	<(?:deployment_id\|alertname\+labels hash|severity|type)>	Deduplication and alert field notation	M1
+specs/services/processor.md	<(?:YYYY-MM-DD|app_id|visitor_id)>	Date and identifier notation	M1
+specs/services/router.md	<(?:app|app_name|base_domain|branch_slug|name|short_id)>	Traefik names, paths, and hostnames	M1
+specs/services/runtime-agent.md	<(?:app|id|lp_internal ip|port|short_id)>	Container label, address, and upstream notation	M1

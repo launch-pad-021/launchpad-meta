@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package launchpad.notifier.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/LP_ORG/launchpad-contracts/gen/go/launchpad/notifier/v1;notifierv1";
+
+// NotifierService manages alert channels. Delivery is event-driven. See specs/services/notifier.md.
+service NotifierService {
+  rpc ListChannels(ListChannelsRequest) returns (ListChannelsResponse);
+  rpc UpsertChannel(UpsertChannelRequest) returns (Channel);
+  rpc DeleteChannel(DeleteChannelRequest) returns (DeleteChannelResponse);
+  rpc SendTest(SendTestRequest) returns (SendTestResponse);
+}
+
+// ChannelKind is the delivery mechanism.
+enum ChannelKind {
+  CHANNEL_KIND_UNSPECIFIED = 0;
+  CHANNEL_KIND_TELEGRAM = 1;
+  CHANNEL_KIND_EMAIL = 2;
+}
+
+message Channel {
+  string id = 1;
+  ChannelKind kind = 2;
+  // Telegram chat id or email address.
+  string target = 3;
+  // Event types, e.g. "deployment.failed.v1", "alert.critical".
+  repeated string events = 4;
+  bool enabled = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message ListChannelsRequest {}
+message ListChannelsResponse {
+  repeated Channel channels = 1;
+}
+
+message UpsertChannelRequest {
+  // Empty id creates a channel.
+  Channel channel = 1;
+}
+
+message DeleteChannelRequest {
+  string id = 1;
+}
+message DeleteChannelResponse {}
+
+message SendTestRequest {
+  string id = 1;
+}
+message SendTestResponse {
+  bool delivered = 1;
+  string error = 2;
+}

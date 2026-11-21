@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/container.exited.v1.schema.json",
+  "title": "container.exited.v1",
+  "description": "An app container exited",
+  "x-topic": "lp.runtime",
+  "x-key": "app_id",
+  "x-producer": "runtime-agent",
+  "x-consumers": [
+    "deployer",
+    "notifier"
+  ],
+  "type": "object",
+  "required": [
+    "deployment_id",
+    "app_id",
+    "container_id",
+    "exit_code",
+    "oom_killed",
+    "restart_count",
+    "at"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "deployment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "app_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "container_id": {
+      "type": "string"
+    },
+    "exit_code": {
+      "type": "integer"
+    },
+    "oom_killed": {
+      "type": "boolean"
+    },
+    "restart_count": {
+      "type": "integer"
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/deployment.failed.v1.schema.json",
+  "title": "deployment.failed.v1",
+  "description": "A deployment failed (or a live one is crash-looping: stage=runtime)",
+  "x-topic": "lp.deployments",
+  "x-key": "app_id",
+  "x-producer": "deployer",
+  "x-consumers": [
+    "notifier"
+  ],
+  "type": "object",
+  "required": [
+    "deployment_id",
+    "app_id",
+    "app_name",
+    "branch",
+    "stage",
+    "error"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "deployment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "app_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "app_name": {
+      "type": "string"
+    },
+    "branch": {
+      "type": "string"
+    },
+    "commit_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "build",
+        "env",
+        "start",
+        "health",
+        "route",
+        "runtime",
+        "internal"
+      ]
+    },
+    "error": {
+      "type": "string",
+      "maxLength": 2048
+    }
+  }
+}

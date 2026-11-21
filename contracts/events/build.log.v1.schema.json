@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/build.log.v1.schema.json",
+  "title": "build.log.v1",
+  "description": "Batch of build log lines",
+  "x-topic": "lp.build-logs",
+  "x-key": "app_id",
+  "x-producer": "builder",
+  "x-consumers": [
+    "logs"
+  ],
+  "type": "object",
+  "required": [
+    "deployment_id",
+    "app_id",
+    "lines"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "deployment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "app_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "lines": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "required": [
+          "seq",
+          "ts",
+          "stream",
+          "line"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "ts": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stream": {
+            "type": "string",
+            "enum": [
+              "system",
+              "stdout",
+              "stderr"
+            ]
+          },
+          "line": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package launchpad.scm.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/LP_ORG/launchpad-contracts/gen/go/launchpad/scm/v1;scmv1";
+
+// ScmService wraps the GitHub App. Webhooks are HTTP, not gRPC. See specs/services/scm.md.
+service ScmService {
+  // Short-lived, single-repo, read-only clone credentials. Caller: builder.
+  rpc GetCloneCredentials(GetCloneCredentialsRequest) returns (GetCloneCredentialsResponse);
+  // Resolves a ref (branch or sha) to a commit.
+  rpc GetCommit(GetCommitRequest) returns (Commit);
+  rpc ListBranches(ListBranchesRequest) returns (ListBranchesResponse);
+  // Repos where the GitHub App is installed.
+  rpc ListInstalledRepos(ListInstalledReposRequest) returns (ListInstalledReposResponse);
+}
+
+message GetCloneCredentialsRequest {
+  string repo_full_name = 1;
+}
+message GetCloneCredentialsResponse {
+  string clone_url = 1;
+  string username = 2;
+  // Never log this value.
+  string token = 3;
+  google.protobuf.Timestamp expires_at = 4;
+}
+
+message GetCommitRequest {
+  string repo_full_name = 1;
+  string ref = 2;
+}
+message Commit {
+  string sha = 1;
+  string message = 2;
+  string author_login = 3;
+  google.protobuf.Timestamp committed_at = 4;
+}
+
+message ListBranchesRequest {
+  string repo_full_name = 1;
+}
+message ListBranchesResponse {
+  repeated string branches = 1;
+  string default_branch = 2;
+}
+
+message ListInstalledReposRequest {}
+message ListInstalledReposResponse {
+  repeated string repo_full_names = 1;
+}

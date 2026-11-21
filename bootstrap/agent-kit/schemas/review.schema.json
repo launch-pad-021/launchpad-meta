@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Launchpad reviewer output",
+  "type": "object",
+  "required": ["verdict", "risk", "findings", "checks_performed", "not_inspected"],
+  "additionalProperties": false,
+  "properties": {
+    "verdict": { "enum": ["approve", "request_changes", "needs_human"] },
+    "risk": { "enum": ["low", "medium", "high"] },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "file", "line", "evidence", "trigger", "impact", "fix", "test", "confidence"],
+        "additionalProperties": false,
+        "properties": {
+          "severity": { "enum": ["critical", "high", "medium", "low", "nit"] },
+          "file": { "type": "string" },
+          "line": { "type": "integer", "minimum": 1 },
+          "evidence": { "type": "string" },
+          "trigger": { "type": "string" },
+          "impact": { "type": "string" },
+          "fix": { "type": "string" },
+          "test": { "type": "string" },
+          "confidence": { "enum": ["confirmed", "likely", "possible"] }
+        }
+      }
+    },
+    "checks_performed": { "type": "array", "items": { "type": "string" } },
+    "not_inspected": { "type": "array", "items": { "type": "string" } }
+  }
+}

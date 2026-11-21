@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/scm.push.v1.schema.json",
+  "title": "scm.push.v1",
+  "description": "A branch was pushed",
+  "x-topic": "lp.scm",
+  "x-key": "repo_full_name",
+  "x-producer": "scm",
+  "x-consumers": [
+    "deployer"
+  ],
+  "type": "object",
+  "required": [
+    "delivery_id",
+    "repo_full_name",
+    "branch",
+    "commit_sha",
+    "pushed_at"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "delivery_id": {
+      "type": "string"
+    },
+    "repo_full_name": {
+      "type": "string",
+      "pattern": "^[^/]+/[^/]+$"
+    },
+    "branch": {
+      "type": "string"
+    },
+    "commit_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "commit_message": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "author_login": {
+      "type": "string"
+    },
+    "pushed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "forced": {
+      "type": "boolean"
+    }
+  }
+}

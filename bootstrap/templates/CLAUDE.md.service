@@ -1,0 +1,33 @@
+# launchpad-<service>
+
+<one-line purpose from specs/services/<service>.md>
+
+## Read first
+- Service spec: `launchpad-meta/specs/services/<service>.md` (authoritative behavior)
+- Conventions: `launchpad-meta/specs/03-conventions.md` (IDs, errors, events, config, logging, git)
+- Contracts: `launchpad-contracts` vX.Y.Z (pinned in <go.mod | Cargo.toml | pyproject.toml | package.json>)
+
+## Map
+<filled by the template per language, e.g.>
+- `cmd/<service>/main.go` — wiring
+- `internal/` — domain packages
+- `migrations/` — goose migrations (expand-only, specs/05-data.md §6)
+- `test/` — integration tests (Testcontainers)
+
+## Commands
+| Task | Command |
+|---|---|
+| Format | `make fmt` |
+| Lint | `make lint` |
+| Unit tests | `make test` |
+| Integration tests | `make test-integration` (needs Docker) |
+| Run locally | `make run` (uses launchpad-infra compose.dev.yml for dependencies) |
+
+## Non-negotiables
+- Follow the service spec and conventions; report contradictions as `spec-bug` issues in launchpad-meta.
+- Never log or emit secrets/env values/tokens. Parameterized SQL only.
+- Events: envelope + schema-valid `data`; DB-backed events via the outbox.
+- Don't edit `.github/`, `.claude/`, `CODEOWNERS`, `CLAUDE.md`, `AGENTS.md` (agent-config).
+- Tests for every acceptance criterion; never weaken tests to pass.
+- PR body: acceptance matrix with real command outcomes.
+- These repo instructions take precedence over plugin skills. In CI (headless), never use skills that wait for a human (superpowers `brainstorming`, `finishing-a-development-branch`, `executing-plans` checkpoints).
