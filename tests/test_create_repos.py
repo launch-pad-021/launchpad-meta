@@ -6,7 +6,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.create_repos import ConfigError, Provisioner, load_manifest, render_repository
+from scripts.create_repos import (FINAL_KIT_REF, ConfigError, GhAdapter, Journal,
+                                  Provisioner, load_manifest,
+                                  render_repository, ruleset_payload)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,7 +48,12 @@ class RepositoryTemplateTest(unittest.TestCase):
                 self.assertTrue(required <= set(tree))
                 self.assertIn("USER ", tree["Dockerfile"])
                 self.assertNotIn("@main", "\n".join(tree.values()))
-                self.assertIn("KIT_REF", tree[".github/workflows/ci.yml"])
+                self.assertIn(FINAL_KIT_REF, tree[".github/workflows/ci.yml"])
+                self.assertNotIn("KIT_REF", tree[".github/workflows/ci.yml"])
+                self.assertIn("/.github/workflows/ci-", tree[".github/workflows/ci.yml"])
+                agent = tree[".github/workflows/agent.yml"]
+                for field in ("issue_number:", "lease_id:", "attempt:", "max_budget_usd:", "kit_ref:"):
+                    self.assertIn(field, agent)
 
     def test_render_is_deterministic_and_has_no_real_owner(self):
         first = render_repository("launchpad-router", "go", "M5-02", "specs/services/router.md")
@@ -99,7 +106,8 @@ class ProvisioningPolicyTest(unittest.TestCase):
 
     def test_unrelated_or_wrong_visibility_existing_repo_refuses(self):
         for state in ({"visibility": "public"},
-                      {"visibility": "private", "marker": "launchpad-provision-v1"}):
+                      {"visibility": "private", "marker": "launchpad-provision-v1"},
+                      {"visibility": "public", "marker": "launchpad-provision-v1", "stage": "discovered"}):
             api = FakeGitHub({"launchpad-router": state})
             with self.assertRaises(ConfigError):
                 Provisioner(api, self.manifest, "launch-pad-021", "public").run(
@@ -141,3 +149,82 @@ else: raise SystemExit(9)
             calls = [json.loads(line) for line in log.read_text().splitlines()]
             self.assertTrue(calls)
             self.assertFalse(any("--method" in call or "-X" in call for call in calls))
+
+    def test_ruleset_payload_pins_both_check_producers(self):
+        payload = ruleset_payload(123, 456)
+        checks = payload["rules"][-1]["parameters"]["required_status_checks"]
+        self.assertEqual([item["context"] for item in checks], [
+            "CI / build", "CI / lint", "CI / types", "CI / tests",
+            "CI / security", "CI / contracts", "agent-review / merge-gate",
+        ])
+        self.assertTrue(all(item["integration_id"] == 123 for item in checks[:6]))
+        self.assertEqual(checks[-1]["integration_id"], 456)
+        self.assertEqual(payload["bypass_actors"], [])
+
+    def test_journal_is_atomic_and_refuses_identity_drift(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / "state.json"
+            journal = Journal(path)
+            journal.record("launchpad-router", {"repo_id": 7, "visibility": "public",
+                                                  "stage": "created", "marker": "launchpad-provision-v1"})
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(Journal(path).repo("launchpad-router")["repo_id"], 7)
+            with self.assertRaises(ConfigError):
+                journal.assert_identity("launchpad-router", 8, "public")
+
+    def test_create_lost_response_is_reconciled_without_repeating_post(self):
+        with tempfile.TemporaryDirectory() as raw:
+            calls = []
+            repo = {"id": 77, "name": "launchpad-router", "full_name": "launch-pad-021/launchpad-router",
+                    "visibility": "public", "description": "launchpad-provision-v1; managed"}
+
+            def runner(argv, **kwargs):
+                calls.append((list(argv), kwargs.get("input")))
+                endpoint = argv[-1]
+                if endpoint == "orgs/launch-pad-021/repos":
+                    return subprocess.CompletedProcess(argv, 1, "", "synthetic lost response")
+                if endpoint == "repos/launch-pad-021/launchpad-router":
+                    return subprocess.CompletedProcess(argv, 0, json.dumps(repo), "")
+                return subprocess.CompletedProcess(argv, 9, "", "unexpected")
+
+            adapter = GhAdapter(Path(raw) / "journal.json", apply=True, runner=runner)
+            adapter.org = "launch-pad-021"
+            adapter.prepared = True  # policy preflight is tested separately from lost-response recovery
+            adapter.mutate({"kind": "create", "repo": "launchpad-router", "visibility": "public",
+                            "kit_ref": FINAL_KIT_REF, "tree_hash": "a" * 64, "tree": {},
+                            "marker": "launchpad-provision-v1", "owner": "synthetic-owner",
+                            "ci_integration_id": 123, "review_integration_id": 456,
+                            "app_roles": ["dev", "review"]})
+            posts = [call for call in calls if "--method" in call[0] and "POST" in call[0]]
+            self.assertEqual(len(posts), 1)
+            payload = json.loads(posts[0][1])
+            self.assertFalse(payload["auto_init"])
+            self.assertFalse(payload["allow_merge_commit"])
+            self.assertEqual(Journal(Path(raw) / "journal.json").repo("launchpad-router")["stage"], "created")
+
+    def test_apply_preflight_requires_exact_selected_app_policy(self):
+        with tempfile.TemporaryDirectory() as raw:
+            installations = [
+                {"id": 1, "app_slug": "launchpad-dev", "repository_selection": "selected",
+                 "suspended_at": None, "permissions": {"contents": "write", "issues": "write",
+                 "pull_requests": "write", "metadata": "read"}},
+                {"id": 2, "app_slug": "launchpad-review", "repository_selection": "selected",
+                 "suspended_at": None, "permissions": {"contents": "read", "pull_requests": "write",
+                 "statuses": "write", "metadata": "read"}},
+            ]
+
+            def runner(argv, **kwargs):
+                return subprocess.CompletedProcess(argv, 0, json.dumps({"total_count": 2,
+                                                                          "installations": installations}), "")
+
+            adapter = GhAdapter(Path(raw) / "journal.json", apply=True,
+                                installations={"dev": 1, "review": 2}, runner=runner)
+            adapter.org = "launch-pad-021"
+            adapter.prepare_apply({"dev", "review"})
+            self.assertTrue(adapter.prepared)
+            installations[1]["permissions"]["administration"] = "write"
+            second = GhAdapter(Path(raw) / "second.json", apply=True,
+                               installations={"dev": 1, "review": 2}, runner=runner)
+            second.org = "launch-pad-021"
+            with self.assertRaises(ConfigError):
+                second.prepare_apply({"dev", "review"})
