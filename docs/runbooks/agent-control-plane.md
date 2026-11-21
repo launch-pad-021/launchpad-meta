@@ -3,7 +3,10 @@
 ## Status and boundary
 
 The control plane is fail-closed at P0. `scripts/agent_control.py` makes policy
-decisions from a typed snapshot; it never reads GitHub or performs a mutation.
+decisions from a typed snapshot. `scripts/conductor_live.py` is the only live
+adapter: it reads the org kill switch and Project state, records a durable lease,
+updates Project status, and sends the typed repository dispatch.
+`scripts/github_publish.py` owns planner, metrics and audit publishing.
 Workflow jobs start with `permissions: {}` and grant read access only where a
 job needs it. Mutating workflows default to dry-run.
 
@@ -42,23 +45,24 @@ reserve budget, change a Project item, dispatch a workflow or post a comment.
 
 ## Live enablement gates
 
-Live apply is intentionally unavailable until the owner configures and verifies:
+Live apply code is installed but remains unavailable until the owner configures and verifies:
 
 1. a control-plane GitHub App installation with organization Projects read/write,
    organization/repository Variables read, and scoped cross-repository Actions,
    Issues and Pull Requests read;
 2. a separate narrowly scoped writer for the ledger ref, target dispatch,
    Project updates and confirmed handoffs;
-3. finite `LP_AGENT_DAILY_BUDGET_USD`, daily run cap and per-role run caps;
+3. finite `LP_AGENT_DAILY_BUDGET_MICROS`, `LP_AGENT_RUN_BUDGET_MICROS`, daily
+   run cap and per-role run caps;
 4. a provider API credential whose budget semantics enforce USD caps;
 5. an immutable agent-kit release and thin caller contract using
    `{"version":1,"issue":7,"dispatch_id":"opaque-lease-id"}`;
 6. a default-branch GitHub Actions dry-run proving that write tokens and mutation
    adapters are absent.
 
-Do not replace these with a personal token or `secrets: inherit`. The current
-workflow writes a clear failing summary if a user requests live apply before the
-installation is proven.
+Do not replace these with a personal token or `secrets: inherit`. Missing
+secrets, variables, permissions, malformed API responses and partial GraphQL
+results fail the workflow before subsequent mutations.
 
 ## Recovery
 

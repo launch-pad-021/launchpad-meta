@@ -62,18 +62,43 @@ jobs:
 
   apply-gate:
     name: Live apply gate
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == false }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
     needs: policy-dry-run
     runs-on: ubuntu-24.04
     timeout-minutes: 2
-    permissions: {}
+    permissions:
+      contents: read
     steps:
-      - name: Require owner-configured control-plane installation
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Mint narrow control-plane token
+        id: app-token
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          app-id: ${{ secrets.LP_CONTROL_APP_ID }}
+          private-key: ${{ secrets.LP_CONTROL_APP_KEY }}
+          owner: ${{ vars.LP_ORG }}
+          permission-contents: write
+          permission-issues: write
+          permission-organization-projects: write
+      - name: Reconcile and dispatch one bounded cycle
         env:
-          APP_ID: ${{ secrets.LP_CONTROL_APP_ID }}
-          APP_KEY: ${{ secrets.LP_CONTROL_APP_KEY }}
-          DAILY_BUDGET: ${{ vars.LP_AGENT_DAILY_BUDGET_USD }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          LP_ORG: ${{ vars.LP_ORG }}
+          PROJECT_ID: ${{ vars.LP_PROJECT_ID }}
+          STATUS_FIELD_ID: ${{ vars.LP_STATUS_FIELD_ID }}
+          IN_PROGRESS_OPTION_ID: ${{ vars.LP_STATUS_IN_PROGRESS_OPTION_ID }}
+          CONTROL_ISSUE: ${{ vars.LP_CONTROL_ISSUE }}
+          OWNER_LOGIN: ${{ vars.LP_OWNER_LOGIN }}
+          DAILY_MICROS: ${{ vars.LP_AGENT_DAILY_BUDGET_MICROS }}
+          RUN_MICROS: ${{ vars.LP_AGENT_RUN_BUDGET_MICROS }}
         run: |
-          test -n "$APP_ID" && test -n "$APP_KEY" && test -n "$DAILY_BUDGET"
-          echo "Live apply remains fail-closed until the installation proves Variables read and organization Projects write." >> "$GITHUB_STEP_SUMMARY"
-          exit 1
+          test -n "$LP_ORG" && test -n "$PROJECT_ID" && test -n "$STATUS_FIELD_ID"
+          test -n "$IN_PROGRESS_OPTION_ID" && test -n "$CONTROL_ISSUE" && test -n "$OWNER_LOGIN"
+          test -n "$DAILY_MICROS" && test -n "$RUN_MICROS"
+          python3 scripts/conductor_live.py --org "$LP_ORG" --project-id "$PROJECT_ID" \
+            --status-field-id "$STATUS_FIELD_ID" --in-progress-option-id "$IN_PROGRESS_OPTION_ID" \
+            --control-issue "$CONTROL_ISSUE" --owner-login "$OWNER_LOGIN" \
+            --daily-budget-micros "$DAILY_MICROS" \
+            --per-run-budget-micros "$RUN_MICROS" > conductor-live-result.json

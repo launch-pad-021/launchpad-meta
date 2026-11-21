@@ -2,9 +2,11 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 from scripts.agent_control import (
     DryRunAdapter,
+    GitHubAdapter,
     PolicyError,
     execute_cycle,
     plan_cycle,
@@ -102,6 +104,38 @@ class AgentControlTests(unittest.TestCase):
         manifest["tasks"][0]["depends_on"] = ["two"]
         with self.assertRaises(PolicyError):
             validate_plan_manifest(manifest)
+
+    def test_live_adapter_checks_switch_reserves_then_dispatches_idempotently(self):
+        calls = []
+        def runner(command, **kwargs):
+            calls.append((command, kwargs.get("input")))
+            endpoint = command[-1] if command[-1] != "-" else command[-3]
+            if endpoint.endswith("AGENTS_ENABLED"):
+                output = '{"value":"true"}'
+            elif "/comments?" in endpoint:
+                output = "[]"
+            elif endpoint == "graphql":
+                output = '{"data":{"updateProjectV2ItemFieldValue":{"projectV2Item":{"id":"item"}}}}'
+            else:
+                output = ""
+            return SimpleNamespace(returncode=0, stdout=output, stderr="")
+        adapter = GitHubAdapter(org="example-org", project_id="project", status_field_id="field",
+            in_progress_option_id="option", control_issue=1, token="synthetic", runner=runner)
+        intent = {"dispatch_id": "a" * 24, "issue_id": "I_1", "ordinal": 1,
+                  "repo": "launchpad-router", "issue_number": 7, "project_item_id": "PVTI_1"}
+        self.assertTrue(adapter.enabled())
+        adapter.reserve(intent)
+        adapter.reserve(intent)
+        adapter.dispatch(intent)
+        adapter.dispatch(intent)
+        payloads = [json.loads(raw) for _, raw in calls if raw]
+        self.assertEqual(1, sum("updateProjectV2ItemFieldValue" in p.get("query", "") for p in payloads))
+        self.assertEqual(1, sum(p.get("event_type") == "lp-implement" for p in payloads))
+
+    def test_live_adapter_refuses_missing_credentials_before_calls(self):
+        with self.assertRaises(PolicyError):
+            GitHubAdapter(org="example-org", project_id="p", status_field_id="f",
+                          in_progress_option_id="o", control_issue=1, token="")
 
 
 if __name__ == "__main__":
