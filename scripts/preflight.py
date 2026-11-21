@@ -273,9 +273,12 @@ def tool_checks(ctx: Context) -> list[CheckResult]:
 
 
 def risk_tests(sibling: Path, runner: Runner) -> tuple[bool, str]:
-    output = probe(runner, "uv", "run", "--no-project", "--no-python-downloads",
-                   "--python", "python3", "--with", "pytest", "pytest", "-q", "--color=no",
-                   str(sibling / "scripts/test_risk.py"))
+    args = ("uv", "run", "--no-project", "--no-python-downloads", "--python", "python3",
+            "--with", "pytest", "pytest", "-q", "--color=no",
+            str(sibling / "scripts/test_risk.py"))
+    output = probe(runner, args[0], args[1], "--offline", *args[2:])
+    if output is None:
+        output = probe(runner, *args)
     if output is None:
         return False, "sibling risk tests failed or uv unavailable"
     summary = re.search(r"^([1-9][0-9]{0,5}) passed(?:, [0-9]+ warnings?)? in ", output, re.MULTILINE)
