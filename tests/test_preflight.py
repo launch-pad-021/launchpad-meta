@@ -63,6 +63,7 @@ class PreflightTest(unittest.TestCase):
         self.risk_summary = "16 passed in 0.12s"
         self.commands = []
         self.offline_risk_failure = False
+        self.a0_drill_ok = True
         self.context = Context(self.root, self.sibling, "step-minus-one", False, {}, self.command)
 
     def command(self, args):
@@ -81,6 +82,8 @@ class PreflightTest(unittest.TestCase):
         if (args[:2] in {("gh", "auth"), ("docker", "info")} or
                 args[0] == str(self.root / "scripts/validate-spec-pack.sh")):
             return subprocess.CompletedProcess(args, 0, "private-stdout", "private-stderr")
+        if len(args) >= 2 and args[1] == str(self.root / "scripts/a0_drills.py"):
+            return subprocess.CompletedProcess(args, int(not self.a0_drill_ok), "redacted", "")
         self.fail(f"unexpected command {args}")
 
     def results(self, **kwargs):
@@ -114,6 +117,14 @@ class PreflightTest(unittest.TestCase):
         self.assertNotIn("private-org", str(rows))
         self.check_all()
         self.assertEqual(exit_code(self.results(phase="a0")), 0)
+
+    def test_a0_local_drills_are_blocking_but_live_gates_remain_owner_actions(self):
+        self.a0_drill_ok = False
+        rows = self.results(phase="a0")
+        indexed = {row.check_id: row for row in rows}
+        self.assertEqual(Status.FAIL, indexed["a0-local-drills"].status)
+        self.assertEqual(Status.OWNER_ACTION, indexed["GITHUB-APPS-01"].status)
+        self.assertEqual(1, exit_code(rows))
 
     def test_apple_jq_build_is_accepted_without_exposing_vendor_text(self):
         self.versions["jq", "--version"] = "jq-1.7.1-apple"

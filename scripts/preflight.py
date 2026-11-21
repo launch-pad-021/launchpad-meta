@@ -307,6 +307,16 @@ def run_checks(context: Context) -> list[CheckResult]:
     else:
         risk_ok, detail = False, "requires the sibling, uv and Python 3.11+"
     checks.append(local(ctx, "risk-tests", risk_ok, detail))
+    if ctx.phase == "a0":
+        drills_ok = probe(
+            ctx.command_runner, "python3", str(ctx.root / "scripts/a0_drills.py"),
+            "--agent-kit", str(ctx.sibling),
+        ) is not None
+        checks.append(local(
+            ctx, "a0-local-drills", drills_ok,
+            "local A0 adversarial drills passed" if drills_ok else
+            "run make test-a0-drills for deterministic drill diagnostics",
+        ))
     return sorted(checks, key=lambda row: row.check_id)
 
 

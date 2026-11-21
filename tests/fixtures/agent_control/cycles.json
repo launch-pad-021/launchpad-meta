@@ -1,0 +1,53 @@
+[
+  {
+    "name": "selects-ready-with-complete-dependencies",
+    "enabled": true,
+    "daily_budget_micros": 30000000,
+    "per_run_budget_micros": 5000000,
+    "spent_micros": 0,
+    "active": [],
+    "items": [
+      {"id": "a", "status": "Done", "position": 1, "labels": [], "dependencies": [], "fields_complete": true, "attempts": 1},
+      {"id": "b", "status": "Ready", "position": 2, "labels": ["agent:task"], "dependencies": ["a"], "fields_complete": true, "attempts": 0},
+      {"id": "c", "status": "Ready", "position": 3, "labels": ["agent:task", "agent:hold"], "dependencies": [], "fields_complete": true, "attempts": 0}
+    ],
+    "expected": ["b"]
+  },
+  {
+    "name": "caps-total-active-implementers",
+    "enabled": true,
+    "daily_budget_micros": 30000000,
+    "per_run_budget_micros": 5000000,
+    "spent_micros": 0,
+    "active": ["x", "y"],
+    "items": [
+      {"id": "b", "status": "Ready", "position": 2, "labels": ["agent:task"], "dependencies": [], "fields_complete": true, "attempts": 0},
+      {"id": "c", "status": "Ready", "position": 3, "labels": ["agent:task"], "dependencies": [], "fields_complete": true, "attempts": 0}
+    ],
+    "expected": ["b"]
+  },
+  {
+    "name": "budget-exhaustion-selects-none",
+    "enabled": true,
+    "daily_budget_micros": 5000000,
+    "per_run_budget_micros": 5000000,
+    "spent_micros": 1000000,
+    "active": [],
+    "items": [
+      {"id": "b", "status": "Ready", "position": 2, "labels": ["agent:task"], "dependencies": [], "fields_complete": true, "attempts": 0}
+    ],
+    "expected": []
+  },
+  {
+    "name": "kill-switch-selects-none",
+    "enabled": false,
+    "daily_budget_micros": 30000000,
+    "per_run_budget_micros": 5000000,
+    "spent_micros": 0,
+    "active": [],
+    "items": [
+      {"id": "b", "status": "Ready", "position": 2, "labels": ["agent:task"], "dependencies": [], "fields_complete": true, "attempts": 0}
+    ],
+    "expected": []
+  }
+]

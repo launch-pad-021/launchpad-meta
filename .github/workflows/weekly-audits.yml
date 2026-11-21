@@ -1,0 +1,72 @@
+name: Weekly agent audits
+
+on:
+  schedule:
+    - cron: "23 2 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Do not publish finding issues
+        required: true
+        type: boolean
+        default: true
+
+permissions: {}
+
+concurrency:
+  group: weekly-agent-audits
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Fail closed before any model or writer
+        env:
+          AGENTS_ENABLED: ${{ vars.AGENTS_ENABLED }}
+        run: test "$AGENTS_ENABLED" = "true"
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Validate credential-free publisher boundary
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          printf '[]\n' | python3 scripts/weekly_audits.py > audit-findings.json
+      - id: read-token
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          app-id: ${{ secrets.LP_CONTROL_APP_ID }}
+          private-key: ${{ secrets.LP_CONTROL_APP_KEY }}
+          owner: ${{ vars.LP_ORG }}
+          permission-contents: read
+      - name: Collect typed governance findings
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
+        env:
+          GH_TOKEN: ${{ steps.read-token.outputs.token }}
+          LP_ORG: ${{ vars.LP_ORG }}
+        run: |
+          python3 scripts/collect_audits.py | python3 scripts/weekly_audits.py > audit-findings.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: weekly-audits-${{ github.run_id }}-${{ github.run_attempt }}
+          path: audit-findings.json
+          retention-days: 30
+      - id: app-token
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          app-id: ${{ secrets.LP_CONTROL_APP_ID }}
+          private-key: ${{ secrets.LP_CONTROL_APP_KEY }}
+          owner: ${{ vars.LP_ORG }}
+          repositories: launchpad-meta
+          permission-issues: write
+      - name: Publish deduplicated findings
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          LP_ORG: ${{ vars.LP_ORG }}
+        run: python3 scripts/github_publish.py --org "$LP_ORG" audits audit-findings.json

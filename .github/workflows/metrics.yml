@@ -1,0 +1,66 @@
+name: Agent metrics
+
+on:
+  schedule:
+    - cron: "0 15 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: agent-metrics
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - name: Check live switch
+        env:
+          AGENTS_ENABLED: ${{ vars.AGENTS_ENABLED }}
+        run: test "$AGENTS_ENABLED" = "true"
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - id: read-token
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          app-id: ${{ secrets.LP_CONTROL_APP_ID }}
+          private-key: ${{ secrets.LP_CONTROL_APP_KEY }}
+          owner: ${{ vars.LP_ORG }}
+          permission-actions: read
+          permission-contents: read
+          permission-issues: read
+          permission-pull-requests: read
+      - name: Collect authenticated run facts
+        env:
+          GH_TOKEN: ${{ steps.read-token.outputs.token }}
+          LP_ORG: ${{ vars.LP_ORG }}
+        run: |
+          python3 scripts/collect_metrics.py > agent-results.json
+          python3 scripts/agent_metrics.py --input agent-results.json > metrics.csv
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: agent-metrics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: metrics.csv
+          retention-days: 30
+      - id: app-token
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          app-id: ${{ secrets.LP_CONTROL_APP_ID }}
+          private-key: ${{ secrets.LP_CONTROL_APP_KEY }}
+          owner: ${{ vars.LP_ORG }}
+          repositories: launchpad-meta
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Publish idempotent metrics PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          LP_ORG: ${{ vars.LP_ORG }}
+        run: python3 scripts/github_publish.py --org "$LP_ORG" metrics agent-results.json
