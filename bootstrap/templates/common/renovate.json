@@ -1,0 +1,1 @@
+{"extends":["config:recommended"],"dependencyDashboard":true,"rangeStrategy":"pin","docker":{"pinDigests":true}}

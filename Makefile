@@ -1,4 +1,4 @@
-.PHONY: bootstrap bootstrap-install preflight preflight-a0 preflight-strict validate test test-agent-kit
+.PHONY: bootstrap bootstrap-install preflight preflight-a0 preflight-strict validate test test-agent-kit test-repo-provisioning
 
 bootstrap:
 	scripts/bootstrap-local.sh
@@ -23,3 +23,7 @@ test:
 
 test-agent-kit:
 	scripts/preflight.sh --test-agent-kit
+
+test-repo-provisioning:
+	python3 -m unittest tests.test_create_repos -v
+	bash -n scripts/create-repos.sh
