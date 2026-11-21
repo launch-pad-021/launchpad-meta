@@ -26,32 +26,51 @@ import json, os, sys
 from pathlib import Path
 args = sys.argv[1:]
 Path(os.environ["FAKE_GH_LOG"]).open("a").write(json.dumps(args) + "\\n")
-state = json.loads(Path(os.environ["FAKE_GH_STATE"]).read_text())
+state_path = Path(os.environ["FAKE_GH_STATE"])
+state = json.loads(state_path.read_text())
 if args[:2] == ["api", "orgs/launch-pad-021"]:
     print("launch-pad-021")
 elif args[:2] == ["api", "user/memberships/orgs/launch-pad-021"]:
     print("active")
 elif args[:2] == ["project", "list"]:
-    projects = [{"number": 1, "title": "Launchpad", "id": "project-id"}] if state.get("project_exists", True) else []
+    projects = [{"number": state.get("project_number", 1), "title": "Launchpad", "id": "project-id"} for _ in range(state.get("project_count", 1))] if state.get("project_exists", True) else []
     print(json.dumps({"projects": projects}))
 elif args[:2] == ["project", "create"]:
+    state["project_exists"] = True
+    state["project_count"] = 1
+    state_path.write_text(json.dumps(state))
     print(json.dumps({"number": 1, "title": "Launchpad", "id": "project-id"}))
 elif args[:3] == ["project", "field-list", "1"]:
     print(json.dumps({"fields": state["fields"]}))
 elif os.environ.get("FAKE_GH_FAIL") == "1" and args[:2] == ["label", "create"]:
     print("synthetic-secret-token", file=sys.stderr)
     raise SystemExit(9)
-else:
+elif args[:2] == ["label", "create"]:
     print("{}")
+elif args[:2] == ["api", "graphql"]:
+    payload = json.loads(sys.stdin.read())
+    update = payload["variables"]["input"]
+    field = next(field for field in state["fields"] if field["id"] == update["fieldId"])
+    field["options"] = [dict(option, id=option.get("id", f"new-{index}")) for index, option in enumerate(update["singleSelectOptions"])]
+    state_path.write_text(json.dumps(state))
+    print("{}")
+elif args[:2] == ["project", "field-create"] and "Risk" in args:
+    state["fields"].append({"id":"risk-id", "name":"Risk", "type":"ProjectV2SingleSelectField", "options":[{"id":"risk-low","name":"low"},{"id":"risk-medium","name":"medium"},{"id":"risk-high","name":"high"}]})
+    state_path.write_text(json.dumps(state))
+    print("{}")
+else:
+    print("unexpected fake gh command", file=sys.stderr)
+    raise SystemExit(77)
 """)
         fake.chmod(0o755)
 
-    def write_state(self, configured=True, project_exists=True, risk_options=None):
+    def write_state(self, configured=True, project_exists=True, risk_options=None,
+                    project_count=1, project_number=1):
         statuses = ["Backlog", "Ready", "In progress", "In review", "Merged", "Deployed",
                     "Verified", "Done", "Blocked", "Failed", "On hold"]
         fields = [
             {"id": "status-id", "name": "Status", "type": "ProjectV2SingleSelectField",
-             "options": [{"id": str(i), "name": name} for i, name in enumerate(
+             "options": [{"id": f"status-{i}", "name": name} for i, name in enumerate(
                  statuses if configured else ["Todo", "In Progress", "Done"] )]},
             {"id": "milestone-id", "name": "Milestone", "type": "ProjectV2Field"},
             {"id": "repository-id", "name": "Repository", "type": "ProjectV2Field"},
@@ -60,7 +79,11 @@ else:
             fields.append({"id": "risk-id", "name": "Risk", "type": "ProjectV2SingleSelectField",
                            "options": [{"name": value} for value in
                                        (risk_options or ("low", "medium", "high"))]})
-        self.state.write_text(json.dumps({"fields": fields, "project_exists": project_exists}))
+            for index, option in enumerate(fields[-1]["options"]):
+                option["id"] = f"risk-{index}"
+        self.state.write_text(json.dumps({"fields": fields, "project_exists": project_exists,
+                                          "project_count": project_count,
+                                          "project_number": project_number}))
 
     def invoke(self, *args, expected_org="launch-pad-021", fail=False):
         env = {
@@ -68,9 +91,10 @@ else:
             "PATH": f"{self.bin}:{Path(sys.executable).parent}:/usr/bin:/bin",
             "FAKE_GH_LOG": str(self.log),
             "FAKE_GH_STATE": str(self.state),
-            "LP_ORG": expected_org,
             "GH_TOKEN": "synthetic-secret-token",
         }
+        if expected_org is not None:
+            env["LP_ORG"] = expected_org
         if fail:
             env["FAKE_GH_FAIL"] = "1"
         return subprocess.run([SCRIPT, *args], env=env, capture_output=True, text=True)
@@ -121,6 +145,15 @@ else:
         self.assertIn("does not match", result.stderr)
         self.assertEqual(self.calls(), [])
 
+    def test_missing_or_blank_trusted_organization_fails_before_gh(self):
+        for value in (None, ""):
+            with self.subTest(value=value):
+                self.write_state()
+                result = self.invoke("--org", "launch-pad-021", expected_org=value)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("LP_ORG must be set", result.stderr)
+                self.assertEqual(self.calls(), [])
+
     def test_apply_is_idempotent_when_project_fields_are_configured(self):
         self.write_state()
         result = self.invoke("--org", "launch-pad-021", "--apply")
@@ -157,13 +190,63 @@ else:
         fields_index = next(i for i, call in enumerate(calls) if call[:3] == ["project", "field-list", "1"])
         self.assertLess(create_index, fields_index)
 
-    def test_unexpected_risk_options_fail_before_any_mutation(self):
+    def test_additive_risk_repair_preserves_existing_option_ids(self):
         self.write_state(risk_options=("low", "high"))
         result = self.invoke("--org", "launch-pad-021", "--apply")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        risk = next(field for field in json.loads(self.state.read_text())["fields"]
+                    if field["name"] == "Risk")
+        self.assertEqual([option["name"] for option in risk["options"]], ["low", "medium", "high"])
+        self.assertEqual(risk["options"][0]["id"], "risk-0")
+        self.assertEqual(risk["options"][2]["id"], "risk-1")
+
+    def test_unknown_risk_option_refuses_before_any_mutation(self):
+        self.write_state(risk_options=("low", "legacy"))
+        result = self.invoke("--org", "launch-pad-021", "--apply")
         self.assertEqual(result.returncode, 1)
-        self.assertIn("unexpected options", result.stderr)
+        self.assertIn("unsafe extra options", result.stderr)
         self.assertFalse(any(call[:2] in (["label", "create"], ["api", "graphql"])
                              for call in self.calls()))
+
+    def test_status_repair_preserves_default_option_identity(self):
+        self.write_state(configured=False)
+        result = self.invoke("--org", "launch-pad-021", "--apply")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        status = next(field for field in json.loads(self.state.read_text())["fields"]
+                      if field["name"] == "Status")
+        by_name = {option["name"]: option["id"] for option in status["options"]}
+        self.assertEqual(by_name["Backlog"], "status-0")
+        self.assertEqual(by_name["In progress"], "status-1")
+        self.assertEqual(by_name["Done"], "status-2")
+
+    def test_discovery_is_complete_and_duplicate_project_is_refused(self):
+        self.write_state(project_count=2)
+        result = self.invoke("--org", "launch-pad-021", "--apply")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("exactly one Launchpad Project", result.stderr)
+        self.assertFalse(any(call[:2] == ["label", "create"] for call in self.calls()))
+        list_calls = [call for call in self.calls() if call[:2] in
+                      (["project", "list"], ["project", "field-list"])]
+        self.assertTrue(all("--limit" in call and "1000" in call for call in list_calls))
+
+    def test_malformed_success_output_is_redacted(self):
+        marker = "synthetic-private-marker"
+        self.write_state(project_number=marker)
+        result = self.invoke("--org", "launch-pad-021")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("malformed GitHub response", result.stderr)
+        self.assertNotIn(marker, result.stdout + result.stderr)
+
+    def test_repair_then_repeat_has_no_second_field_mutation(self):
+        self.write_state(configured=False)
+        first = self.invoke("--org", "launch-pad-021", "--apply")
+        self.assertEqual(first.returncode, 0, first.stderr)
+        first_count = len(self.calls())
+        second = self.invoke("--org", "launch-pad-021", "--apply")
+        self.assertEqual(second.returncode, 0, second.stderr)
+        second_calls = self.calls()[first_count:]
+        self.assertFalse(any(call[:2] in (["api", "graphql"], ["project", "field-create"])
+                             for call in second_calls))
 
     def test_command_failure_redacts_subprocess_output(self):
         self.write_state()

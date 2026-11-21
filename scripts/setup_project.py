@@ -16,6 +16,7 @@ STATUS_COLORS = (
     "GRAY", "BLUE", "YELLOW", "PURPLE", "GREEN", "BLUE",
     "GREEN", "GREEN", "RED", "RED", "ORANGE",
 )
+STATUS_RENAMES = {"Todo": "Backlog", "In Progress": "In progress"}
 LABELS = (
     ("agent:task", "1D76DB", "PR-sized task approved through a milestone plan"),
     ("agent:hold", "FBCA04", "Stop agent work until the owner removes this label"),
@@ -44,13 +45,68 @@ def run_gh(args: Sequence[str], *, input_text: str | None = None) -> str:
     return result.stdout
 
 
+def parse_object(raw: str) -> dict:
+    try:
+        value = json.loads(raw)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise SetupError("malformed GitHub response") from exc
+    if not isinstance(value, dict):
+        raise SetupError("malformed GitHub response")
+    return value
+
+
 def project_fields(org: str, number: int) -> list[dict]:
-    raw = run_gh(("project", "field-list", str(number), "--owner", org, "--format", "json"))
-    return json.loads(raw)["fields"]
+    raw = run_gh(("project", "field-list", str(number), "--owner", org, "--limit", "1000",
+                  "--format", "json"))
+    fields = parse_object(raw).get("fields")
+    if not isinstance(fields, list) or not all(isinstance(field, dict) for field in fields):
+        raise SetupError("malformed GitHub response")
+    return fields
 
 
 def field_by_name(fields: list[dict], name: str) -> dict | None:
     return next((field for field in fields if field.get("name") == name), None)
+
+
+def option_names(field: dict | None) -> tuple[str, ...]:
+    options = (field or {}).get("options", [])
+    if not isinstance(options, list) or not all(
+        isinstance(item, dict) and isinstance(item.get("name"), str) for item in options
+    ):
+        raise SetupError("malformed GitHub response")
+    return tuple(item["name"] for item in options)
+
+
+def reconciled_options(field: dict, expected: Sequence[str], colors: Sequence[str],
+                       renames: dict[str, str], field_name: str) -> list[dict]:
+    existing = field.get("options")
+    if not isinstance(existing, list):
+        raise SetupError("malformed GitHub response")
+    by_target: dict[str, dict] = {}
+    for option in existing:
+        if not isinstance(option, dict) or not isinstance(option.get("name"), str):
+            raise SetupError("malformed GitHub response")
+        target = renames.get(option["name"], option["name"])
+        if target not in expected:
+            raise SetupError(f"existing {field_name} field has unsafe extra options")
+        if target in by_target:
+            raise SetupError(f"existing {field_name} field has ambiguous options")
+        if not isinstance(option.get("id"), str) or not option["id"]:
+            raise SetupError("malformed GitHub response")
+        by_target[target] = option
+    return [
+        {**({"id": by_target[name]["id"]} if name in by_target else {}),
+         "name": name, "color": color, "description": name}
+        for name, color in zip(expected, colors, strict=True)
+    ]
+
+
+def update_select_field(field_id: str, options: list[dict]) -> None:
+    payload = json.dumps({
+        "query": "mutation($input:UpdateProjectV2FieldInput!){updateProjectV2Field(input:$input){projectV2Field{... on ProjectV2SingleSelectField{id}}}}",
+        "variables": {"input": {"fieldId": field_id, "singleSelectOptions": options}},
+    })
+    run_gh(("api", "graphql", "--input", "-"), input_text=payload)
 
 
 def verify_org(org: str) -> None:
@@ -62,21 +118,32 @@ def verify_org(org: str) -> None:
 
 def reconcile(org: str, apply: bool) -> None:
     expected_org = os.environ.get("LP_ORG")
-    if expected_org and expected_org != org:
+    if not expected_org or not expected_org.strip():
+        raise SetupError("LP_ORG must be set to the trusted organization")
+    if expected_org != org:
         raise SetupError(f"--org {org} does not match LP_ORG")
     verify_org(org)
 
-    projects = json.loads(run_gh(("project", "list", "--owner", org, "--format", "json")))["projects"]
-    project = next((item for item in projects if item.get("title") == "Launchpad"), None)
+    response = parse_object(run_gh(("project", "list", "--owner", org, "--limit", "1000",
+                                    "--format", "json")))
+    projects = response.get("projects")
+    if not isinstance(projects, list) or not all(isinstance(item, dict) for item in projects):
+        raise SetupError("malformed GitHub response")
+    matches = [item for item in projects if item.get("title") == "Launchpad"]
+    if len(matches) > 1:
+        raise SetupError("expected exactly one Launchpad Project; found multiple")
+    project = matches[0] if matches else None
     if project is None:
         print("APPLY" if apply else "DRY RUN", f"organization={org}")
         print("create Launchpad Project")
         print(f"ensure {len(LABELS)} labels in each control repository")
         if not apply:
             return
-        project = json.loads(run_gh(("project", "create", "--owner", org, "--title", "Launchpad",
-                                     "--format", "json")))
-    number = int(project["number"])
+        project = parse_object(run_gh(("project", "create", "--owner", org, "--title", "Launchpad",
+                                       "--format", "json")))
+    number = project.get("number")
+    if isinstance(number, bool) or not isinstance(number, int) or number < 1:
+        raise SetupError("malformed GitHub response")
     fields = project_fields(org, number)
     status = field_by_name(fields, "Status")
     risk = field_by_name(fields, "Risk")
@@ -84,15 +151,25 @@ def reconcile(org: str, apply: bool) -> None:
     if status is None or missing_builtins:
         raise SetupError("Launchpad Project is missing required built-in fields")
 
-    status_names = tuple(option["name"] for option in status.get("options", ()))
-    risk_names = tuple(option["name"] for option in (risk or {}).get("options", ()))
-    if risk is not None and risk_names != ("low", "medium", "high"):
-        raise SetupError("existing Risk field has unexpected options; refusing destructive replacement")
+    status_names = option_names(status)
+    risk_names = option_names(risk)
+    status_target_names = tuple(STATUS_RENAMES.get(name, name) for name in status_names)
+    status_update = status_target_names != STATUSES or status_names != STATUSES
+    risk_expected = ("low", "medium", "high")
+    risk_update = risk is not None and risk_names != risk_expected
+    status_options = (
+        reconciled_options(status, STATUSES, STATUS_COLORS, STATUS_RENAMES, "Status")
+        if status_update else None
+    )
+    risk_options = (
+        reconciled_options(risk, risk_expected, ("GREEN", "YELLOW", "RED"), {}, "Risk")
+        if risk_update else None
+    )
     print("APPLY" if apply else "DRY RUN", f"organization={org} project={number}")
     print(f"ensure {len(LABELS)} labels in each control repository")
-    if status_names != STATUSES:
+    if status_update:
         print("update Status field options")
-    if risk_names != ("low", "medium", "high"):
+    if risk is None or risk_update:
         print("create Risk field" if risk is None else "repair Risk field options")
 
     if not apply:
@@ -101,19 +178,13 @@ def reconcile(org: str, apply: bool) -> None:
         for name, color, description in LABELS:
             run_gh(("label", "create", name, "--repo", f"{org}/{repo}", "--color", color,
                     "--description", description, "--force"))
-    if status_names != STATUSES:
-        options = [
-            {"name": name, "color": color, "description": name}
-            for name, color in zip(STATUSES, STATUS_COLORS, strict=True)
-        ]
-        payload = json.dumps({
-            "query": "mutation($input:UpdateProjectV2FieldInput!){updateProjectV2Field(input:$input){projectV2Field{... on ProjectV2SingleSelectField{id}}}}",
-            "variables": {"input": {"fieldId": status["id"], "singleSelectOptions": options}},
-        })
-        run_gh(("api", "graphql", "--input", "-"), input_text=payload)
+    if status_options is not None:
+        update_select_field(status["id"], status_options)
     if risk is None:
         run_gh(("project", "field-create", str(number), "--owner", org, "--name", "Risk",
                 "--data-type", "SINGLE_SELECT", "--single-select-options", "low,medium,high"))
+    elif risk_options is not None:
+        update_select_field(risk["id"], risk_options)
 
 
 def main() -> int:
@@ -123,7 +194,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         reconcile(args.org, args.apply)
-    except (SetupError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+    except SetupError as exc:
         print(str(exc), file=sys.stderr)
         return 1
     return 0
