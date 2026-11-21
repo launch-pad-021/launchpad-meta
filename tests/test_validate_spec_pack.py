@@ -29,6 +29,20 @@ class ValidateSpecPackTest(unittest.TestCase):
     def test_missing_required_root_file_is_an_error(self):
         self.assertEqual([finding.level for finding in self.findings("required", "README.md")], ["error"])
 
+    def test_deleting_an_indexed_proto_is_an_error(self):
+        path = "contracts/proto/launchpad/builder/v1/builder.proto"
+        proto = self.write(path, 'syntax = "proto3";')
+        self.assertEqual(self.findings("required", path), [])
+        proto.unlink()
+        self.assertEqual([finding.level for finding in self.findings("required", path)], ["error"])
+
+    def test_deleting_an_indexed_agent_kit_workflow_is_an_error(self):
+        path = "bootstrap/agent-kit/.github/workflows/agent-review.yml"
+        workflow = self.write(path, "name: agent-review\n")
+        self.assertEqual(self.findings("required", path), [])
+        workflow.unlink()
+        self.assertEqual([finding.level for finding in self.findings("required", path)], ["error"])
+
     def test_malformed_json_has_a_relative_path_and_line(self):
         path = "bootstrap/agent-kit/plugins/launchpad/hooks/hooks.json"
         self.write(path, "{\n invalid\n}")
@@ -87,6 +101,13 @@ class ValidateSpecPackTest(unittest.TestCase):
         self.assertIn("line 3", finding.detail)
         self.assertIn("UNEXPECTED_PLACEHOLDER", finding.detail)
 
+    def test_unexpected_placeholder_in_python_starter_is_an_error(self):
+        path = "bootstrap/agent-kit/scripts/risk.py"
+        self.write(path, "# Risk classifier\nlabel = 'UNEXPECTED_PLACEHOLDER'\n")
+        findings = self.findings("placeholder", path)
+        self.assertEqual([finding.level for finding in findings], ["error"])
+        self.assertIn("line 2", findings[0].detail)
+
     def test_allowing_a_token_does_not_exempt_the_rest_of_its_line(self):
         path = "bootstrap/templates/project.md"
         self.write(path, "Clone from <org>/project and notify <other-person>.\n")
@@ -115,6 +136,20 @@ class ValidateSpecPackTest(unittest.TestCase):
         finding, = self.findings("allowlist")
         self.assertEqual(finding.level, "error")
         self.assertIn("regular expression", finding.detail)
+
+    def test_catch_all_allowlist_scopes_and_patterns_are_errors(self):
+        examples = (
+            ("*", ".*", "scope"),
+            ("**/*.md", "<org>", "scope"),
+            ("specs/00-product.md", "(?s:.*)", "pattern"),
+            ("specs/00-product.md", "<[^>]+>", "pattern"),
+        )
+        for glob, pattern, reason in examples:
+            with self.subTest(glob=glob, pattern=pattern):
+                self.write("scripts/placeholder-allowlist.txt", f"{glob}\t{pattern}\tBlanket rule\tM1\n")
+                findings = self.findings("allowlist")
+                self.assertEqual([finding.level for finding in findings], ["error"])
+                self.assertIn(reason, findings[0].detail)
 
     def test_shell_syntax_failure_is_an_error_even_in_a_template(self):
         path = "bootstrap/agent-kit/hooks/broken.sh"

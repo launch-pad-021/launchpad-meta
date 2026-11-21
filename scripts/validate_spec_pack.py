@@ -67,9 +67,14 @@ REQUIRED_FILES = (
     )),
     CATALOG,
     ENVELOPE,
-    "contracts/proto/launchpad/common/v1/common.proto",
+    *(f"contracts/proto/launchpad/{name}/v1/{name}.proto" for name in (
+        "analytics", "builder", "common", "deployer", "identity", "logs",
+        "notifier", "projects", "router", "runtime", "scm",
+    )),
     "bootstrap/KICKOFF.md",
     "bootstrap/agent-kit/README.md",
+    "bootstrap/agent-kit/.github/workflows/agent-implement.yml",
+    "bootstrap/agent-kit/.github/workflows/agent-review.yml",
     "bootstrap/launchpad-meta/CLAUDE.md",
     "bootstrap/templates/AGENTS.md.service",
     "bootstrap/templates/CLAUDE.md.service",
@@ -93,6 +98,8 @@ PLACEHOLDER = re.compile(
     r"|\b(?:LP_ORG|vX\.Y\.Z|[A-Z0-9]+(?:_[A-Z0-9]+)*_PLACEHOLDER|(?i:TODO|FIXME|TBD))\b"
 )
 EVENT_NAME = re.compile(r"[a-z_]+(?:\.[a-z_]+)*\.v[0-9]+")
+# Unlisted tokens in each format expose blanket patterns even within named paths.
+UNLISTED_TOKENS = ("<unlisted>", "<unlisted field>", "UNEXPECTED_PLACEHOLDER", "<!-- unlisted field -->")
 
 
 def load_allowlist(path: Path) -> list[AllowRule]:
@@ -107,9 +114,15 @@ def load_allowlist(path: Path) -> list[AllowRule]:
         if rule.expires not in MILESTONES:
             raise ValueError(f"line {number}: expected an expiry in {', '.join(MILESTONES)}")
         try:
-            re.compile(rule.pattern)
+            pattern = re.compile(rule.pattern)
         except re.error as exc:
             raise ValueError(f"line {number}: invalid regular expression ({exc})") from exc
+        first, _, _ = rule.path_glob.partition("/")
+        last = rule.path_glob.rsplit("/", 1)[-1]
+        if first in {"", ".", ".."} or any(char in first for char in "*?[") or not last.strip("*"):
+            raise ValueError(f"line {number}: path scope must name a file or a directory with a specific file glob")
+        if any(pattern.fullmatch(token) for token in UNLISTED_TOKENS):
+            raise ValueError(f"line {number}: catch-all pattern matches unlisted placeholders")
         rules.append(rule)
     return rules
 
@@ -132,10 +145,11 @@ def find_placeholders(root: Path, rules: Sequence[AllowRule], milestone: str) ->
     findings = []
     for path in pack_files(root):
         relative = path.relative_to(root).as_posix()
+        starter_python = path.suffix == ".py" and relative.startswith("bootstrap/agent-kit/")
         if (
             relative == ALLOWLIST
             or relative.startswith(("docs/superpowers/", "tests/"))
-            or path.suffix not in TEXT_SUFFIXES
+            or (path.suffix not in TEXT_SUFFIXES and not starter_python)
             or path.name.startswith(".env.")
         ):
             continue
