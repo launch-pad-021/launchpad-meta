@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/build.completed.v1.schema.json",
+  "title": "build.completed.v1",
+  "description": "Image built and pushed",
+  "x-topic": "lp.builds",
+  "x-key": "app_id",
+  "x-producer": "builder",
+  "x-consumers": [
+    "deployer"
+  ],
+  "type": "object",
+  "required": [
+    "deployment_id",
+    "app_id",
+    "image_ref",
+    "image_digest",
+    "duration_ms",
+    "effective_config"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "deployment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "app_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "image_ref": {
+      "type": "string"
+    },
+    "image_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "duration_ms": {
+      "type": "integer"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "effective_config": {
+      "type": "object",
+      "required": [
+        "port",
+        "health_path",
+        "cpu",
+        "memory_mb"
+      ],
+      "properties": {
+        "port": {
+          "type": "integer"
+        },
+        "health_path": {
+          "type": "string"
+        },
+        "cpu": {
+          "type": "number"
+        },
+        "memory_mb": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

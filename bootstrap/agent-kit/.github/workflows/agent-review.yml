@@ -1,0 +1,107 @@
+# Reusable: risk classification + independent agent reviews for a PR. Starter; finalized in A0-05.
+name: agent-review
+on:
+  workflow_call:
+    secrets:
+      ANTHROPIC_API_KEY: { required: true }
+      LP_REVIEW_APP_ID: { required: true }
+      LP_REVIEW_APP_KEY: { required: true }
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  risk:
+    runs-on: ubuntu-24.04
+    outputs:
+      level: ${{ steps.r.outputs.level }}
+      reviewers: ${{ steps.r.outputs.reviewers }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ vars.LP_ORG }}/launchpad-agent-kit", path: .agent-kit }
+      - id: r
+        run: |
+          git diff --name-only origin/${{ github.base_ref }}...HEAD > changed.txt
+          git diff origin/${{ github.base_ref }}...HEAD > pr.diff
+          labels='${{ join(github.event.pull_request.labels.*.name, ',') }}'
+          python3 .agent-kit/scripts/risk.py --repo "${GITHUB_REPOSITORY#*/}" --files changed.txt --diff pr.diff --labels "$labels" > risk.json
+          cat risk.json
+          echo "level=$(jq -r .level risk.json)" >> "$GITHUB_OUTPUT"
+          # reviewer selection (specs/12-agentic-system.md §11.2) - extended in A0-05
+          rev='["code-reviewer","correctness-verifier"]'
+          if [ "$(jq -r .level risk.json)" = "high" ]; then rev=$(echo "$rev" | jq -c '. + ["security-auditor"]'); fi
+          if grep -qE '(^|/)migrations/' changed.txt; then rev=$(echo "$rev" | jq -c '. + ["database-reviewer"]'); fi
+          echo "reviewers=$rev" >> "$GITHUB_OUTPUT"
+      - id: app
+        uses: actions/create-github-app-token@v2
+        with: { app-id: "${{ secrets.LP_REVIEW_APP_ID }}", private-key: "${{ secrets.LP_REVIEW_APP_KEY }}" }
+      - name: Publish risk status
+        env: { GH_TOKEN: "${{ steps.app.outputs.token }}" }
+        run: |
+          gh api repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }} \
+            -f state=success -f context="risk/${{ steps.r.outputs.level }}" -f description="$(jq -r '.reasons[0]' risk.json | cut -c1-140)"
+
+  review:
+    needs: risk
+    if: vars.AGENTS_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        reviewer: ${{ fromJson(needs.risk.outputs.reviewers) }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - id: app
+        uses: actions/create-github-app-token@v2
+        with: { app-id: "${{ secrets.LP_REVIEW_APP_ID }}", private-key: "${{ secrets.LP_REVIEW_APP_KEY }}" }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ vars.LP_ORG }}/launchpad-agent-kit", path: .agent-kit }
+      - id: schema
+        run: echo "json=$(jq -c . .agent-kit/schemas/review.schema.json)" >> "$GITHUB_OUTPUT"
+      - id: review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ steps.app.outputs.token }}
+          plugin_marketplaces: |
+            https://github.com/anthropics/claude-plugins-official.git
+            https://github.com/trailofbits/skills.git
+            https://github.com/${{ vars.LP_ORG }}/launchpad-agent-kit.git
+          plugins: |
+            launchpad@launchpad-agent-kit
+            superpowers@claude-plugins-official
+            pr-review-toolkit@claude-plugins-official
+            code-review@claude-plugins-official
+            security-guidance@claude-plugins-official
+            static-analysis@trailofbits
+            differential-review@trailofbits
+            insecure-defaults@trailofbits
+            sharp-edges@trailofbits
+            agentic-actions-auditor@trailofbits
+          # Pin: A0-05 replaces marketplace URLs with SHA-pinned mirrors/refs (specs/12-agentic-system.md §8).
+          prompt: |
+            Use the launchpad-review-gate skill as the ${{ matrix.reviewer }} agent to review PR #${{ github.event.pull_request.number }}
+            (diff: origin/${{ github.base_ref }}...HEAD). Output only JSON matching the schema.
+          claude_args: |
+            --max-turns 30
+            --json-schema '${{ steps.schema.outputs.json }}'
+            --allowedTools "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*)"
+      - name: Publish review status
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          # Structured output name per claude-code-action docs - verify in A0-05.
+          RESULT: ${{ steps.review.outputs.structured_output }}
+        run: |
+          echo "$RESULT" > result.json
+          verdict=$(jq -r .verdict result.json)
+          blocking=$(jq '[.findings[] | select(.severity=="critical" or .severity=="high")] | length' result.json)
+          state=success; [ "$verdict" = "approve" ] && [ "$blocking" = "0" ] || state=failure
+          gh api repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }} \
+            -f state=$state -f context="agent-review/${{ matrix.reviewer }}" -f description="verdict: $verdict, blocking: $blocking"
+          jq -r '"### ${{ matrix.reviewer }}: \(.verdict)\n" + ([.findings[] | "- **\(.severity)** `\(.file):\(.line)` \(.impact)\n  - Fix: \(.fix)"] | join("\n"))' result.json > comment.md
+          gh pr comment ${{ github.event.pull_request.number }} --body-file comment.md

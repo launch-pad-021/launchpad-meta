@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package launchpad.common.v1;
+
+option go_package = "github.com/LP_ORG/launchpad-contracts/gen/go/launchpad/common/v1;commonv1";
+
+// PageRequest is used by every List RPC.
+message PageRequest {
+  // Max items to return (1-200, default 50).
+  int32 page_size = 1;
+  // Opaque token from a previous PageResponse.
+  string page_token = 2;
+}
+
+// PageResponse accompanies every List RPC result.
+message PageResponse {
+  // Empty when there are no more pages.
+  string next_page_token = 1;
+}
+
+// DeploymentKind distinguishes production and preview deployments.
+enum DeploymentKind {
+  DEPLOYMENT_KIND_UNSPECIFIED = 0;
+  DEPLOYMENT_KIND_PRODUCTION = 1;
+  DEPLOYMENT_KIND_PREVIEW = 2;
+}
+
+// RouteKind is the kind of hostname a route serves.
+enum RouteKind {
+  ROUTE_KIND_UNSPECIFIED = 0;
+  ROUTE_KIND_PRODUCTION = 1;
+  ROUTE_KIND_PREVIEW = 2;
+  ROUTE_KIND_IMMUTABLE = 3;
+}
+
+// Resources are per-container limits.
+message Resources {
+  // CPU cores (0.1-2.0).
+  double cpu = 1;
+  // Memory in MiB (64-4096).
+  int32 memory_mb = 2;
+}

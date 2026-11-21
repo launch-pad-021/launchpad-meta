@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/deployment.live.v1.schema.json",
+  "title": "deployment.live.v1",
+  "description": "A deployment started serving traffic",
+  "x-topic": "lp.deployments",
+  "x-key": "app_id",
+  "x-producer": "deployer",
+  "x-consumers": [
+    "analytics"
+  ],
+  "type": "object",
+  "required": [
+    "deployment_id",
+    "app_id",
+    "app_name",
+    "branch",
+    "kind",
+    "commit_sha",
+    "hostnames",
+    "live_at"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "deployment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "app_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "app_name": {
+      "type": "string"
+    },
+    "branch": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "production",
+        "preview"
+      ]
+    },
+    "commit_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "commit_message": {
+      "type": "string"
+    },
+    "hostnames": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "previous_deployment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "live_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

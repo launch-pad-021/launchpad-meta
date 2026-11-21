@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/app.created.v1.schema.json",
+  "title": "app.created.v1",
+  "description": "An app was registered",
+  "x-topic": "lp.projects",
+  "x-key": "app_id",
+  "x-producer": "projects",
+  "x-consumers": [
+    "analytics"
+  ],
+  "type": "object",
+  "required": [
+    "app"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "app": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "repo_full_name",
+        "default_branch",
+        "insights_enabled",
+        "insights_inject"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "repo_full_name": {
+          "type": "string"
+        },
+        "root_dir": {
+          "type": "string"
+        },
+        "default_branch": {
+          "type": "string"
+        },
+        "build_strategy": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "railpack",
+            "dockerfile"
+          ]
+        },
+        "port": {
+          "type": "integer"
+        },
+        "health_path": {
+          "type": "string"
+        },
+        "cpu_limit": {
+          "type": "number"
+        },
+        "mem_limit_mb": {
+          "type": "integer"
+        },
+        "previews_enabled": {
+          "type": "boolean"
+        },
+        "insights_enabled": {
+          "type": "boolean"
+        },
+        "insights_inject": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

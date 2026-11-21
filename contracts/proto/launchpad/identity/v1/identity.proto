@@ -1,0 +1,125 @@
+syntax = "proto3";
+
+package launchpad.identity.v1;
+
+import "google/protobuf/timestamp.proto";
+import "launchpad/common/v1/common.proto";
+
+option go_package = "github.com/LP_ORG/launchpad-contracts/gen/go/launchpad/identity/v1;identityv1";
+
+// IdentityService authenticates the owner and services. See specs/services/identity.md.
+service IdentityService {
+  // Starts the GitHub OAuth flow.
+  rpc BeginOAuth(BeginOAuthRequest) returns (BeginOAuthResponse);
+  // Completes the OAuth flow and creates a session for the allowlisted owner.
+  rpc CompleteOAuth(CompleteOAuthRequest) returns (CompleteOAuthResponse);
+  // Validates a session cookie value or API token and returns a short-lived user JWT.
+  rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse);
+  // Deletes a session.
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  // Creates a CLI token; the plaintext is returned only once.
+  rpc CreateToken(CreateTokenRequest) returns (CreateTokenResponse);
+  // Lists CLI tokens (without secrets).
+  rpc ListTokens(ListTokensRequest) returns (ListTokensResponse);
+  // Revokes a CLI token and emits token.revoked.v1.
+  rpc RevokeToken(RevokeTokenRequest) returns (RevokeTokenResponse);
+  // Exchanges a service credential for a short-lived service JWT.
+  rpc IssueServiceToken(IssueServiceTokenRequest) returns (IssueServiceTokenResponse);
+  // Returns public keys for JWT verification.
+  rpc GetJWKS(GetJWKSRequest) returns (GetJWKSResponse);
+}
+
+message BeginOAuthRequest {
+  // Relative path to return to after login (must start with "/").
+  string redirect_to = 1;
+}
+message BeginOAuthResponse {
+  string authorize_url = 1;
+}
+
+message CompleteOAuthRequest {
+  string code = 1;
+  string state = 2;
+}
+message CompleteOAuthResponse {
+  // Value for the lp_session cookie.
+  string session_token = 1;
+  google.protobuf.Timestamp expires_at = 2;
+  string redirect_to = 3;
+}
+
+message AuthenticateRequest {
+  oneof credential {
+    string session_token = 1;
+    string api_token = 2;
+  }
+  // Client IP for failure rate limiting (not stored).
+  string client_ip = 3;
+}
+message AuthenticateResponse {
+  string user_id = 1;
+  string github_login = 2;
+  repeated string scopes = 3;
+  // Ed25519-signed JWT, 15 minutes.
+  string user_jwt = 4;
+  google.protobuf.Timestamp user_jwt_expires_at = 5;
+}
+
+message LogoutRequest {
+  string session_token = 1;
+}
+message LogoutResponse {}
+
+message ApiToken {
+  string id = 1;
+  string name = 2;
+  // First characters, e.g. "lp_ab12cd34".
+  string prefix = 3;
+  repeated string scopes = 4;
+  google.protobuf.Timestamp last_used = 5;
+  google.protobuf.Timestamp expires_at = 6;
+  google.protobuf.Timestamp revoked_at = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message CreateTokenRequest {
+  string name = 1;
+  repeated string scopes = 2;
+  // Optional lifetime in seconds; 0 = no expiry.
+  int64 expires_in_seconds = 3;
+}
+message CreateTokenResponse {
+  ApiToken token = 1;
+  // Plaintext token; shown once.
+  string plaintext = 2;
+}
+
+message ListTokensRequest {
+  launchpad.common.v1.PageRequest page = 1;
+}
+message ListTokensResponse {
+  repeated ApiToken tokens = 1;
+  launchpad.common.v1.PageResponse page = 2;
+}
+
+message RevokeTokenRequest {
+  string id = 1;
+}
+message RevokeTokenResponse {}
+
+message IssueServiceTokenRequest {
+  // Service name, e.g. "deployer".
+  string service = 1;
+  // Service credential from /run/secrets/svc_<service>.
+  string secret = 2;
+}
+message IssueServiceTokenResponse {
+  string service_jwt = 1;
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+message GetJWKSRequest {}
+message GetJWKSResponse {
+  // JWKS document (RFC 7517) as JSON.
+  string jwks_json = 1;
+}

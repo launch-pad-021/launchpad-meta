@@ -1,0 +1,136 @@
+syntax = "proto3";
+
+package launchpad.projects.v1;
+
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+import "launchpad/common/v1/common.proto";
+
+option go_package = "github.com/LP_ORG/launchpad-contracts/gen/go/launchpad/projects/v1;projectsv1";
+
+// ProjectsService owns apps, settings and encrypted env vars. See specs/services/projects.md.
+service ProjectsService {
+  rpc CreateApp(CreateAppRequest) returns (App);
+  rpc GetApp(GetAppRequest) returns (App);
+  rpc ListApps(ListAppsRequest) returns (ListAppsResponse);
+  // Used by deployer to map a pushed repo to apps.
+  rpc FindAppsByRepo(FindAppsByRepoRequest) returns (FindAppsByRepoResponse);
+  rpc UpdateApp(UpdateAppRequest) returns (App);
+  rpc DeleteApp(DeleteAppRequest) returns (DeleteAppResponse);
+  rpc SetEnvVar(SetEnvVarRequest) returns (EnvVar);
+  rpc DeleteEnvVar(DeleteEnvVarRequest) returns (DeleteEnvVarResponse);
+  rpc ListEnvVars(ListEnvVarsRequest) returns (ListEnvVarsResponse);
+  // Decrypted, scope-merged env for a deployment. Callable only by svc:deployer.
+  rpc GetRuntimeEnv(GetRuntimeEnvRequest) returns (GetRuntimeEnvResponse);
+}
+
+// BuildStrategy selects how builder builds the app.
+enum BuildStrategy {
+  BUILD_STRATEGY_UNSPECIFIED = 0;
+  BUILD_STRATEGY_AUTO = 1;
+  BUILD_STRATEGY_RAILPACK = 2;
+  BUILD_STRATEGY_DOCKERFILE = 3;
+}
+
+// EnvScope limits where an env var applies.
+enum EnvScope {
+  ENV_SCOPE_UNSPECIFIED = 0;
+  ENV_SCOPE_ALL = 1;
+  ENV_SCOPE_PRODUCTION = 2;
+  ENV_SCOPE_PREVIEW = 3;
+}
+
+message App {
+  string id = 1;
+  string name = 2;
+  string repo_full_name = 3;
+  string root_dir = 4;
+  string default_branch = 5;
+  BuildStrategy build_strategy = 6;
+  int32 port = 7;
+  string health_path = 8;
+  launchpad.common.v1.Resources resources = 9;
+  bool previews_enabled = 10;
+  bool insights_enabled = 11;
+  bool insights_inject = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+message CreateAppRequest {
+  // Fields id, created_at and updated_at are ignored.
+  App app = 1;
+}
+
+message GetAppRequest {
+  oneof key {
+    string id = 1;
+    string name = 2;
+  }
+}
+
+message ListAppsRequest {
+  launchpad.common.v1.PageRequest page = 1;
+}
+message ListAppsResponse {
+  repeated App apps = 1;
+  launchpad.common.v1.PageResponse page = 2;
+}
+
+message FindAppsByRepoRequest {
+  string repo_full_name = 1;
+}
+message FindAppsByRepoResponse {
+  repeated App apps = 1;
+}
+
+message UpdateAppRequest {
+  App app = 1;
+  // Paths of App fields to update; name and repo_full_name are immutable.
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message DeleteAppRequest {
+  string id = 1;
+}
+message DeleteAppResponse {}
+
+message EnvVar {
+  string key = 1;
+  EnvScope scope = 2;
+  // Masked ("••••••") unless revealed.
+  string value = 3;
+  google.protobuf.Timestamp updated_at = 4;
+}
+
+message SetEnvVarRequest {
+  string app_id = 1;
+  string key = 2;
+  string value = 3;
+  EnvScope scope = 4;
+}
+
+message DeleteEnvVarRequest {
+  string app_id = 1;
+  string key = 2;
+  EnvScope scope = 3;
+}
+message DeleteEnvVarResponse {}
+
+message ListEnvVarsRequest {
+  string app_id = 1;
+  bool reveal = 2;
+}
+message ListEnvVarsResponse {
+  repeated EnvVar env_vars = 1;
+}
+
+message GetRuntimeEnvRequest {
+  string app_id = 1;
+  launchpad.common.v1.DeploymentKind kind = 2;
+  // For audit logging.
+  string deployment_id = 3;
+}
+message GetRuntimeEnvResponse {
+  map<string, string> env = 1;
+}

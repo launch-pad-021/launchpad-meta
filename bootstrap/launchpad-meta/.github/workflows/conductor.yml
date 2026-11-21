@@ -1,0 +1,39 @@
+# Conductor: picks Ready issues and dispatches implementers. Starter; scripts/conductor.py is built in A0-07.
+name: conductor
+on:
+  schedule: [{ cron: "*/30 * * * *" }]
+  workflow_dispatch: {}
+  repository_dispatch: { types: [lp-issue-ready, lp-pr-merged, lp-incident] }
+
+permissions:
+  contents: read
+
+concurrency: { group: conductor, cancel-in-progress: false }
+
+jobs:
+  dispatch:
+    if: vars.AGENTS_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - id: app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.LP_DEV_APP_ID }}
+          private-key: ${{ secrets.LP_DEV_APP_KEY }}
+          owner: ${{ vars.LP_ORG }}
+      - name: Select and dispatch
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          MAX_PARALLEL: "3"
+          DAILY_BUDGET_USD: ${{ vars.AGENTS_DAILY_BUDGET_USD }}
+        run: |
+          # scripts/conductor.py (A0-07):
+          #  1. Query the "Launchpad" Project for Status=Ready issues meeting the Definition of Ready.
+          #  2. Skip agent:hold / agent:blocked; respect dependencies (all "Depends on" Done).
+          #  3. Respect MAX_PARALLEL "In progress" items and today's spend vs DAILY_BUDGET_USD.
+          #  4. For each selected issue: set Status=In progress, then
+          #     gh api repos/$ORG/<repo>/dispatches -f event_type=lp-implement -F client_payload[issue]=<n>
+          #  5. Handle lp-incident payloads by dispatching incident-responder in launchpad-meta.
+          python3 scripts/conductor.py

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/build.requested.v1.schema.json",
+  "title": "build.requested.v1",
+  "description": "Build this commit",
+  "x-topic": "lp.deployments",
+  "x-key": "app_id",
+  "x-producer": "deployer",
+  "x-consumers": [
+    "builder"
+  ],
+  "type": "object",
+  "required": [
+    "deployment_id",
+    "app_id",
+    "app_name",
+    "repo_full_name",
+    "commit_sha",
+    "build_strategy",
+    "root_dir",
+    "settings"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "deployment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "app_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "app_name": {
+      "type": "string"
+    },
+    "repo_full_name": {
+      "type": "string"
+    },
+    "commit_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "build_strategy": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "railpack",
+        "dockerfile"
+      ]
+    },
+    "root_dir": {
+      "type": "string"
+    },
+    "settings": {
+      "type": "object",
+      "required": [
+        "port",
+        "health_path",
+        "cpu",
+        "memory_mb"
+      ],
+      "properties": {
+        "port": {
+          "type": "integer"
+        },
+        "health_path": {
+          "type": "string"
+        },
+        "cpu": {
+          "type": "number"
+        },
+        "memory_mb": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

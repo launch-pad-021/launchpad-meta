@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package launchpad.router.v1;
+
+import "google/protobuf/timestamp.proto";
+import "launchpad/common/v1/common.proto";
+
+option go_package = "github.com/LP_ORG/launchpad-contracts/gen/go/launchpad/router/v1;routerv1";
+
+// RouterService owns routes and Traefik config. See specs/services/router.md.
+service RouterService {
+  // Upserts a route and returns after Traefik has loaded it.
+  rpc SetRoute(SetRouteRequest) returns (Route);
+  rpc RemoveRoute(RemoveRouteRequest) returns (RemoveRouteResponse);
+  rpc RemoveRoutesForApp(RemoveRoutesForAppRequest) returns (RemoveRoutesForAppResponse);
+  // Hot path for ingest; served from memory.
+  rpc ResolveHost(ResolveHostRequest) returns (ResolveHostResponse);
+  rpc ListRoutes(ListRoutesRequest) returns (ListRoutesResponse);
+}
+
+message Route {
+  string hostname = 1;
+  string app_id = 2;
+  string app_name = 3;
+  string deployment_id = 4;
+  launchpad.common.v1.RouteKind kind = 5;
+  string upstream = 6;
+  string health_path = 7;
+  bool insights = 8;
+  bool inject = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message SetRouteRequest {
+  // updated_at is ignored.
+  Route route = 1;
+}
+
+message RemoveRouteRequest {
+  string hostname = 1;
+}
+message RemoveRouteResponse {}
+
+message RemoveRoutesForAppRequest {
+  string app_id = 1;
+}
+message RemoveRoutesForAppResponse {
+  int32 removed = 1;
+}
+
+message ResolveHostRequest {
+  string hostname = 1;
+}
+message ResolveHostResponse {
+  bool found = 1;
+  string app_id = 2;
+  string app_name = 3;
+  string deployment_id = 4;
+  launchpad.common.v1.RouteKind kind = 5;
+  bool insights = 6;
+}
+
+message ListRoutesRequest {
+  // Optional filter.
+  string app_id = 1;
+}
+message ListRoutesResponse {
+  repeated Route routes = 1;
+}

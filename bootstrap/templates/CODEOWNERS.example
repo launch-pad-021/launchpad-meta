@@ -1,0 +1,39 @@
+# CODEOWNERS template for launchpad-* service repos.
+# "Require review from Code Owners" is enabled by ruleset, so these paths cannot merge without the developer (gate G2).
+# During autonomy phase P0 the catch-all line is active (developer reviews everything); remove it at P1.
+
+*                       @LP_OWNER_LOGIN          # P0 only — delete at P1
+
+# Agent configuration (always developer)
+/.github/               @LP_OWNER_LOGIN
+/.claude/               @LP_OWNER_LOGIN
+/CLAUDE.md              @LP_OWNER_LOGIN
+/AGENTS.md              @LP_OWNER_LOGIN
+/CODEOWNERS             @LP_OWNER_LOGIN
+/renovate.json          @LP_OWNER_LOGIN
+
+# Destructive migrations are detected by the risk script; all migrations get developer review until P2.
+/migrations/            @LP_OWNER_LOGIN
+
+# Per-repo high-risk paths (uncomment the block for this repo):
+# launchpad-identity, launchpad-router, launchpad-runtime-agent, launchpad-builder:
+# *                     @LP_OWNER_LOGIN
+# launchpad-projects:
+# /internal/crypto/     @LP_OWNER_LOGIN
+# /internal/secrets/    @LP_OWNER_LOGIN
+# /internal/runtimeenv/ @LP_OWNER_LOGIN
+# launchpad-scm:
+# /src/webhooks/        @LP_OWNER_LOGIN
+# launchpad-gateway:
+# /internal/auth/       @LP_OWNER_LOGIN
+# /internal/csrf/       @LP_OWNER_LOGIN
+# /internal/ratelimit/  @LP_OWNER_LOGIN
+# launchpad-ingest:
+# /src/handler*         @LP_OWNER_LOGIN
+# /src/validate*        @LP_OWNER_LOGIN
+# launchpad-analytics:
+# /src/lp_analytics/ask/      @LP_OWNER_LOGIN
+# /src/lp_analytics/chusers/  @LP_OWNER_LOGIN
+# launchpad-infra: everything except versions.env
+# *                     @LP_OWNER_LOGIN
+# /versions.env         @LP_ORG/launchpad-release-bots

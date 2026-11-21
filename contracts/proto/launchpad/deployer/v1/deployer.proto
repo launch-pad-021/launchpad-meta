@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+package launchpad.deployer.v1;
+
+import "google/protobuf/timestamp.proto";
+import "launchpad/common/v1/common.proto";
+
+option go_package = "github.com/LP_ORG/launchpad-contracts/gen/go/launchpad/deployer/v1;deployerv1";
+
+// DeployerService owns deployments and the deploy saga. See specs/services/deployer.md.
+service DeployerService {
+  // Manual deploy; resolves the commit if commit_sha is empty.
+  rpc CreateDeployment(CreateDeploymentRequest) returns (Deployment);
+  rpc GetDeployment(GetDeploymentRequest) returns (Deployment);
+  rpc ListDeployments(ListDeploymentsRequest) returns (ListDeploymentsResponse);
+  rpc GetCurrentProduction(GetCurrentProductionRequest) returns (GetCurrentProductionResponse);
+  // Creates a new deployment reusing the image of a previous production deployment.
+  rpc Rollback(RollbackRequest) returns (Deployment);
+  rpc Cancel(CancelRequest) returns (Deployment);
+}
+
+// DeploymentStatus mirrors the deploy_status enum in the deployer DB.
+enum DeploymentStatus {
+  DEPLOYMENT_STATUS_UNSPECIFIED = 0;
+  DEPLOYMENT_STATUS_QUEUED = 1;
+  DEPLOYMENT_STATUS_BUILDING = 2;
+  DEPLOYMENT_STATUS_STARTING = 3;
+  DEPLOYMENT_STATUS_HEALTH_CHECKING = 4;
+  DEPLOYMENT_STATUS_ROUTING = 5;
+  DEPLOYMENT_STATUS_LIVE = 6;
+  DEPLOYMENT_STATUS_SUPERSEDED = 7;
+  DEPLOYMENT_STATUS_FAILED = 8;
+  DEPLOYMENT_STATUS_CANCELLED = 9;
+}
+
+// DeploymentTrigger records what started a deployment.
+enum DeploymentTrigger {
+  DEPLOYMENT_TRIGGER_UNSPECIFIED = 0;
+  DEPLOYMENT_TRIGGER_PUSH = 1;
+  DEPLOYMENT_TRIGGER_MANUAL = 2;
+  DEPLOYMENT_TRIGGER_ROLLBACK = 3;
+  DEPLOYMENT_TRIGGER_CLI = 4;
+}
+
+message Deployment {
+  string id = 1;
+  string short_id = 2;
+  string app_id = 3;
+  string app_name = 4;
+  string branch = 5;
+  launchpad.common.v1.DeploymentKind kind = 6;
+  string commit_sha = 7;
+  string commit_message = 8;
+  DeploymentTrigger trigger = 9;
+  string rollback_of = 10;
+  DeploymentStatus status = 11;
+  string saga_step = 12;
+  string image_ref = 13;
+  string image_digest = 14;
+  repeated string urls = 15;
+  int32 build_ms = 16;
+  bool vitals_regressed = 17;
+  string error_stage = 18;
+  string error = 19;
+  google.protobuf.Timestamp created_at = 20;
+  google.protobuf.Timestamp started_at = 21;
+  google.protobuf.Timestamp live_at = 22;
+  google.protobuf.Timestamp finished_at = 23;
+}
+
+message CreateDeploymentRequest {
+  string app_id = 1;
+  // Defaults to the app's default branch.
+  string branch = 2;
+  // Optional; resolved via scm.GetCommit when empty.
+  string commit_sha = 3;
+  DeploymentTrigger trigger = 4;
+}
+
+message GetDeploymentRequest {
+  string id = 1;
+}
+
+message ListDeploymentsRequest {
+  string app_id = 1;
+  string branch = 2;
+  repeated DeploymentStatus statuses = 3;
+  launchpad.common.v1.PageRequest page = 4;
+}
+message ListDeploymentsResponse {
+  repeated Deployment deployments = 1;
+  launchpad.common.v1.PageResponse page = 2;
+}
+
+message GetCurrentProductionRequest {
+  string app_id = 1;
+}
+message GetCurrentProductionResponse {
+  // Unset when the app has never been live.
+  Deployment deployment = 1;
+}
+
+message RollbackRequest {
+  // The previous production deployment to restore.
+  string deployment_id = 1;
+}
+
+message CancelRequest {
+  string deployment_id = 1;
+}

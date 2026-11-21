@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/deployment.status_changed.v1.schema.json",
+  "title": "deployment.status_changed.v1",
+  "description": "Deployment FSM transition",
+  "x-topic": "lp.deployments",
+  "x-key": "app_id",
+  "x-producer": "deployer",
+  "x-consumers": [
+    "gateway"
+  ],
+  "type": "object",
+  "required": [
+    "deployment_id",
+    "app_id",
+    "branch",
+    "from",
+    "to",
+    "saga_step",
+    "at"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "deployment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "app_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "branch": {
+      "type": "string"
+    },
+    "from": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "building",
+        "starting",
+        "health_checking",
+        "routing",
+        "live",
+        "superseded",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "to": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "building",
+        "starting",
+        "health_checking",
+        "routing",
+        "live",
+        "superseded",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "saga_step": {
+      "type": "string"
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "error_stage": {
+      "type": "string"
+    },
+    "error": {
+      "type": "string",
+      "maxLength": 2048
+    }
+  }
+}

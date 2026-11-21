@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/app.deleted.v1.schema.json",
+  "title": "app.deleted.v1",
+  "description": "An app was deleted",
+  "x-topic": "lp.projects",
+  "x-key": "app_id",
+  "x-producer": "projects",
+  "x-consumers": [
+    "deployer",
+    "router",
+    "analytics"
+  ],
+  "type": "object",
+  "required": [
+    "app_id",
+    "app_name"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "app_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "app_name": {
+      "type": "string"
+    }
+  }
+}

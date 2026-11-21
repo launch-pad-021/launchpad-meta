@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/route.changed.v1.schema.json",
+  "title": "route.changed.v1",
+  "description": "A hostname route was set or removed",
+  "x-topic": "lp.routes",
+  "x-key": "app_id",
+  "x-producer": "router",
+  "x-consumers": [
+    "ingest"
+  ],
+  "type": "object",
+  "required": [
+    "hostname",
+    "app_id",
+    "action"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "hostname": {
+      "type": "string"
+    },
+    "app_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "deployment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "production",
+        "preview",
+        "immutable"
+      ]
+    },
+    "insights": {
+      "type": "boolean"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "set",
+        "removed"
+      ]
+    }
+  }
+}

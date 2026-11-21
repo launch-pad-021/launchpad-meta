@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/scm.branch_deleted.v1.schema.json",
+  "title": "scm.branch_deleted.v1",
+  "description": "A branch was deleted",
+  "x-topic": "lp.scm",
+  "x-key": "repo_full_name",
+  "x-producer": "scm",
+  "x-consumers": [
+    "deployer"
+  ],
+  "type": "object",
+  "required": [
+    "repo_full_name",
+    "branch"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "repo_full_name": {
+      "type": "string"
+    },
+    "branch": {
+      "type": "string"
+    }
+  }
+}

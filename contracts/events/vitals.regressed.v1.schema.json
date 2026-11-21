@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/vitals.regressed.v1.schema.json",
+  "title": "vitals.regressed.v1",
+  "description": "A deployment's Web Vitals p75 regressed",
+  "x-topic": "lp.insights",
+  "x-key": "app_id",
+  "x-producer": "analytics",
+  "x-consumers": [
+    "deployer",
+    "notifier"
+  ],
+  "type": "object",
+  "required": [
+    "deployment_id",
+    "app_id",
+    "metric",
+    "p75_current",
+    "p75_previous",
+    "samples_current",
+    "samples_previous",
+    "checked_at"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "deployment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "app_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "app_name": {
+      "type": "string"
+    },
+    "metric": {
+      "type": "string",
+      "enum": [
+        "LCP",
+        "INP",
+        "CLS"
+      ]
+    },
+    "path": {
+      "type": "string"
+    },
+    "p75_current": {
+      "type": "number"
+    },
+    "p75_previous": {
+      "type": "number"
+    },
+    "samples_current": {
+      "type": "integer"
+    },
+    "samples_previous": {
+      "type": "integer"
+    },
+    "previous_deployment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

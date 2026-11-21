@@ -1,0 +1,11 @@
+{
+  "name": "launchpad-agent-kit",
+  "owner": { "name": "LP_ORG" },
+  "plugins": [
+    {
+      "name": "launchpad",
+      "source": "./plugins/launchpad",
+      "description": "Launchpad agents, skills, hooks and rules for autonomous development"
+    }
+  ]
+}

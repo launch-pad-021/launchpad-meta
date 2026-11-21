@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package launchpad.logs.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/LP_ORG/launchpad-contracts/gen/go/launchpad/logs/v1;logsv1";
+
+// LogsService stores and serves build and runtime logs. See specs/services/logs.md.
+service LogsService {
+  rpc GetLogs(GetLogsRequest) returns (GetLogsResponse);
+  // Replays from after_seq, then streams live lines.
+  rpc TailLogs(TailLogsRequest) returns (stream LogLine);
+  rpc SearchLogs(SearchLogsRequest) returns (SearchLogsResponse);
+}
+
+// LogSource distinguishes build and runtime logs.
+enum LogSource {
+  LOG_SOURCE_UNSPECIFIED = 0;
+  LOG_SOURCE_BUILD = 1;
+  LOG_SOURCE_RUNTIME = 2;
+}
+
+// LogStream is the output stream of a line.
+enum LogStream {
+  LOG_STREAM_UNSPECIFIED = 0;
+  LOG_STREAM_SYSTEM = 1;
+  LOG_STREAM_STDOUT = 2;
+  LOG_STREAM_STDERR = 3;
+}
+
+message LogLine {
+  string deployment_id = 1;
+  LogSource source = 2;
+  LogStream stream = 3;
+  uint64 seq = 4;
+  google.protobuf.Timestamp ts = 5;
+  string line = 6;
+  // True on a heartbeat message (other fields empty).
+  bool heartbeat = 7;
+}
+
+message GetLogsRequest {
+  string deployment_id = 1;
+  LogSource source = 2;
+  uint64 after_seq = 3;
+  // 1-1000.
+  int32 limit = 4;
+}
+message GetLogsResponse {
+  repeated LogLine lines = 1;
+}
+
+message TailLogsRequest {
+  string deployment_id = 1;
+  LogSource source = 2;
+  uint64 after_seq = 3;
+}
+
+message SearchLogsRequest {
+  string app_id = 1;
+  string query = 2;
+  google.protobuf.Timestamp from = 3;
+  google.protobuf.Timestamp to = 4;
+  // 1-500.
+  int32 limit = 5;
+}
+message SearchLogsResponse {
+  repeated LogLine lines = 1;
+}

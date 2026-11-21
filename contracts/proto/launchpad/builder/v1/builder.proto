@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package launchpad.builder.v1;
+
+option go_package = "github.com/LP_ORG/launchpad-contracts/gen/go/launchpad/builder/v1;builderv1";
+
+// BuilderService: builds are triggered by build.requested.v1 events; gRPC is only for control.
+service BuilderService {
+  // Cancels a running or queued build. Idempotent.
+  rpc CancelBuild(CancelBuildRequest) returns (CancelBuildResponse);
+}
+
+message CancelBuildRequest {
+  string deployment_id = 1;
+}
+message CancelBuildResponse {
+  // True if a build was running or queued and is now cancelled.
+  bool cancelled = 1;
+}

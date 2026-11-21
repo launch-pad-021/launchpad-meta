@@ -1,0 +1,6 @@
+{
+  "name": "launchpad",
+  "version": "0.1.0",
+  "description": "Agents, skills and guardrail hooks for building Launchpad with Claude Code (see launchpad-meta/specs/12-agentic-system.md)",
+  "author": { "name": "LP_ORG" }
+}

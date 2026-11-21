@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+package launchpad.runtime.v1;
+
+import "launchpad/common/v1/common.proto";
+
+option go_package = "github.com/LP_ORG/launchpad-contracts/gen/go/launchpad/runtime/v1;runtimev1";
+
+// RuntimeAgentService runs app containers on one node. Caller: deployer only.
+service RuntimeAgentService {
+  // Idempotent by deployment_id.
+  rpc StartContainer(StartContainerRequest) returns (StartContainerResponse);
+  // Idempotent.
+  rpc StopContainer(StopContainerRequest) returns (StopContainerResponse);
+  rpc CheckHealth(CheckHealthRequest) returns (CheckHealthResponse);
+  rpc ListContainers(ListContainersRequest) returns (ListContainersResponse);
+  rpc GetNodeStats(GetNodeStatsRequest) returns (GetNodeStatsResponse);
+}
+
+message StartContainerRequest {
+  string deployment_id = 1;
+  string app_id = 2;
+  string app_name = 3;
+  string short_id = 4;
+  string image_ref = 5;
+  // Decrypted runtime env. Never logged or persisted by the agent.
+  map<string, string> env = 6;
+  int32 port = 7;
+  launchpad.common.v1.Resources resources = 8;
+  launchpad.common.v1.DeploymentKind kind = 9;
+}
+message StartContainerResponse {
+  string container_id = 1;
+  string container_name = 2;
+  // e.g. http://lp-myapp-7f3a1b2c:3000
+  string upstream = 3;
+  // True if the container already existed (idempotent replay).
+  bool already_existed = 4;
+}
+
+message StopContainerRequest {
+  oneof target {
+    string container_id = 1;
+    string deployment_id = 2;
+  }
+  int32 grace_seconds = 3;
+}
+message StopContainerResponse {}
+
+message CheckHealthRequest {
+  string deployment_id = 1;
+  string path = 2;
+}
+message CheckHealthResponse {
+  bool healthy = 1;
+  int32 status_code = 2;
+  int32 latency_ms = 3;
+  bool container_running = 4;
+}
+
+message ListContainersRequest {
+  // Optional filter.
+  string app_id = 1;
+}
+message Container {
+  string container_id = 1;
+  string container_name = 2;
+  string app_id = 3;
+  string deployment_id = 4;
+  // Docker state: running, exited, ...
+  string state = 5;
+  int32 restart_count = 6;
+}
+message ListContainersResponse {
+  repeated Container containers = 1;
+}
+
+message GetNodeStatsRequest {}
+message GetNodeStatsResponse {
+  string node = 1;
+  int32 cpus = 2;
+  int64 memory_total_bytes = 3;
+  int64 memory_available_bytes = 4;
+  int64 disk_free_bytes = 5;
+  int32 running_app_containers = 6;
+}

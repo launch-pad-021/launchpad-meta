@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/insights.event.v1.schema.json",
+  "title": "insights.event.v1",
+  "description": "Raw tracker event (contains IP + UA; processor discards IP)",
+  "x-topic": "events.raw",
+  "x-key": "app_id",
+  "x-producer": "ingest",
+  "x-consumers": [
+    "processor"
+  ],
+  "type": "object",
+  "required": [
+    "received_at",
+    "app_id",
+    "app_name",
+    "deployment_id",
+    "route_kind",
+    "ip",
+    "user_agent",
+    "payload"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "received_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "app_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "app_name": {
+      "type": "string"
+    },
+    "deployment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "route_kind": {
+      "type": "string",
+      "enum": [
+        "production",
+        "preview",
+        "immutable"
+      ]
+    },
+    "ip": {
+      "type": "string"
+    },
+    "user_agent": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "t",
+        "u"
+      ],
+      "properties": {
+        "t": {
+          "type": "string",
+          "enum": [
+            "pageview",
+            "custom",
+            "web_vital"
+          ]
+        },
+        "u": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "r": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "w": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "n": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "v": {
+          "type": "number"
+        },
+        "p": {
+          "type": "object",
+          "maxProperties": 10,
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

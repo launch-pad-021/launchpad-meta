@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://launchpad.dev/events/build.started.v1.schema.json",
+  "title": "build.started.v1",
+  "description": "Builder picked up a build",
+  "x-topic": "lp.builds",
+  "x-key": "app_id",
+  "x-producer": "builder",
+  "x-consumers": [
+    "deployer"
+  ],
+  "type": "object",
+  "required": [
+    "deployment_id",
+    "app_id",
+    "started_at"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "deployment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "app_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

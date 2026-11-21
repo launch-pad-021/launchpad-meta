@@ -1,0 +1,41 @@
+name: Agent task
+description: A PR-sized task for Launchpad agents (created by the planner after milestone plan approval)
+title: "<repo-short>: <task>"
+labels: ["agent:task"]
+body:
+  - type: input
+    id: plan_id
+    attributes: { label: Plan ID, description: "e.g. M3-02", placeholder: "M3-02" }
+    validations: { required: true }
+  - type: input
+    id: repo
+    attributes: { label: Repo, placeholder: "launchpad-deployer" }
+    validations: { required: true }
+  - type: textarea
+    id: context
+    attributes: { label: Context, description: "Links to spec sections (launchpad-meta/specs/...)" }
+    validations: { required: true }
+  - type: textarea
+    id: acceptance
+    attributes: { label: Acceptance criteria, description: "Numbered, testable; cite the spec section each comes from" }
+    validations: { required: true }
+  - type: textarea
+    id: out_of_scope
+    attributes: { label: Out of scope }
+  - type: input
+    id: depends
+    attributes: { label: Depends on, placeholder: "#12, #15" }
+  - type: dropdown
+    id: risk
+    attributes: { label: Risk, options: [low, medium, high] }
+    validations: { required: true }
+  - type: textarea
+    id: risk_reason
+    attributes: { label: Risk reason, description: "Rule from specs/12-agentic-system.md §11.1" }
+  - type: textarea
+    id: verification
+    attributes: { label: Verification, description: "Which tests/checks prove each criterion" }
+    validations: { required: true }
+  - type: textarea
+    id: agent_notes
+    attributes: { label: Agent notes, description: "Filled by agents: decisions, assumptions, handoffs" }

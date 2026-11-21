@@ -1,0 +1,179 @@
+syntax = "proto3";
+
+package launchpad.analytics.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "launchpad/common/v1/common.proto";
+
+option go_package = "github.com/LP_ORG/launchpad-contracts/gen/go/launchpad/analytics/v1;analyticsv1";
+
+// AnalyticsService answers Insights queries. Implemented in Python. See specs/services/analytics.md.
+service AnalyticsService {
+  rpc Overview(OverviewRequest) returns (OverviewResponse);
+  rpc Timeseries(TimeseriesRequest) returns (TimeseriesResponse);
+  rpc Breakdown(BreakdownRequest) returns (BreakdownResponse);
+  rpc Realtime(RealtimeRequest) returns (RealtimeResponse);
+  rpc Vitals(VitalsRequest) returns (VitalsResponse);
+  rpc DeploymentVitals(DeploymentVitalsRequest) returns (DeploymentVitalsResponse);
+  rpc Funnel(FunnelRequest) returns (FunnelResponse);
+  // Natural language question -> validated SQL executed as the app's read-only user.
+  rpc Ask(AskRequest) returns (AskResponse);
+}
+
+// Interval is the time bucket size.
+enum Interval {
+  INTERVAL_UNSPECIFIED = 0;
+  INTERVAL_HOUR = 1;
+  INTERVAL_DAY = 2;
+}
+
+message Filter {
+  string app_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+  Interval interval = 4;
+  string path = 5;
+  string source = 6;
+  string country = 7;
+  string device = 8;
+  // Defaults to ROUTE_KIND_PRODUCTION.
+  launchpad.common.v1.RouteKind route_kind = 9;
+}
+
+message Metric {
+  double value = 1;
+  // Change vs the previous equal-length period, as a ratio (0.12 = +12%).
+  double delta = 2;
+}
+
+message OverviewRequest {
+  Filter filter = 1;
+}
+message OverviewResponse {
+  Metric visitors = 1;
+  Metric pageviews = 2;
+  Metric sessions = 3;
+  Metric bounce_rate = 4;
+  Metric avg_session_seconds = 5;
+}
+
+message TimeseriesRequest {
+  Filter filter = 1;
+}
+message Bucket {
+  google.protobuf.Timestamp ts = 1;
+  int64 visitors = 2;
+  int64 pageviews = 3;
+}
+message DeployMarker {
+  string deployment_id = 1;
+  google.protobuf.Timestamp ts = 2;
+  string commit_sha = 3;
+  string commit_message = 4;
+}
+message TimeseriesResponse {
+  repeated Bucket buckets = 1;
+  repeated DeployMarker markers = 2;
+}
+
+// Dimension to break traffic down by.
+enum Dimension {
+  DIMENSION_UNSPECIFIED = 0;
+  DIMENSION_PATH = 1;
+  DIMENSION_SOURCE = 2;
+  DIMENSION_REFERRER = 3;
+  DIMENSION_COUNTRY = 4;
+  DIMENSION_DEVICE = 5;
+  DIMENSION_BROWSER = 6;
+  DIMENSION_OS = 7;
+}
+
+message BreakdownRequest {
+  Filter filter = 1;
+  Dimension by = 2;
+  // 1-100.
+  int32 limit = 3;
+}
+message BreakdownRow {
+  string key = 1;
+  int64 visitors = 2;
+  int64 pageviews = 3;
+}
+message BreakdownResponse {
+  repeated BreakdownRow rows = 1;
+}
+
+message RealtimeRequest {
+  string app_id = 1;
+}
+message RealtimeResponse {
+  int64 visitors_last_5m = 1;
+  repeated BreakdownRow top_pages = 2;
+}
+
+message VitalsRequest {
+  Filter filter = 1;
+  // LCP, INP, CLS, FCP or TTFB.
+  string metric = 2;
+}
+message VitalsRow {
+  // Path or deployment id, depending on the group.
+  string key = 1;
+  double p50 = 2;
+  double p75 = 3;
+  double p95 = 4;
+  int64 samples = 5;
+}
+message VitalsResponse {
+  repeated VitalsRow by_path = 1;
+  repeated VitalsRow by_deployment = 2;
+}
+
+message DeploymentVitalsRequest {
+  string deployment_id = 1;
+}
+message VitalComparison {
+  string metric = 1;
+  string path = 2;
+  double p75_current = 3;
+  double p75_previous = 4;
+  int64 samples_current = 5;
+  int64 samples_previous = 6;
+  bool regressed = 7;
+}
+message DeploymentVitalsResponse {
+  string previous_deployment_id = 1;
+  repeated VitalComparison comparisons = 2;
+}
+
+message FunnelStep {
+  // "pageview" or "custom".
+  string type = 1;
+  // Path for pageview steps, event name for custom steps.
+  string value = 2;
+}
+message FunnelRequest {
+  Filter filter = 1;
+  // 2-5 steps.
+  repeated FunnelStep steps = 2;
+  int64 window_seconds = 3;
+}
+message FunnelResponse {
+  repeated int64 step_counts = 1;
+}
+
+message AskRequest {
+  string app_id = 1;
+  // At most 500 characters.
+  string question = 2;
+}
+message AskResponse {
+  string sql = 1;
+  // line, bar, table or number.
+  string chart = 2;
+  string title = 3;
+  repeated string columns = 4;
+  repeated google.protobuf.ListValue rows = 5;
+  bool truncated = 6;
+}
