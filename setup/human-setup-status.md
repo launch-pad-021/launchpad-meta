@@ -8,12 +8,12 @@ Headings give the first readiness gate. Pending items are visible from Step −1
 
 - [ ] ACCOUNT-05: Create the Telegram bot and retain its token and chat identifier privately.
 - [ ] ACCOUNT-06: Set up the agent provider credential.
-- [ ] GITHUB-01: Create the organization and decide repository visibility.
+- [x] GITHUB-01: Create the organization and decide repository visibility.
 - [ ] GITHUB-02: Configure an emergency administrator with two-factor authentication and restrict daily-account bypass.
 - [ ] GITHUB-APPS-01: Configure the four private organization-owned Apps, their scoped installations, webhooks and dashboard sign-in.
 - [ ] GITHUB-SECRETS-01: Configure the repository-scoped organization secrets for agents, Apps and notifications.
 - [ ] GITHUB-VARS-01: Configure the organization variables for agent operation, budget, ownership and domain.
-- [ ] GITHUB-REPOS-01: Create both control repositories and seed their contents.
+- [x] GITHUB-REPOS-01: Create both control repositories and seed their contents.
 - [ ] GITHUB-PROJECT-01: Configure the organization Project fields and statuses.
 
 ## M0 · After A0 acceptance, before the automated pipeline
