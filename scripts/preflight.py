@@ -59,14 +59,30 @@ M0_DEPENDENCIES = {
     "M0-06": {"M0-01", "M0-02"}, "M0-07": {"M0-01", "M0-02"},
 }
 OWNER_GATES = {
-    "ACCOUNT-01": "M0-03", "ACCOUNT-02": "M0-01", "ACCOUNT-03": "M0-06",
+    "ACCOUNT-01": "M0-02", "ACCOUNT-02": "M0-01", "ACCOUNT-03": "M0-02",
     "ACCOUNT-04": "M0-02", "ACCOUNT-05": "A0", "ACCOUNT-06": "A0",
     "GITHUB-01": "A0", "GITHUB-02": "A0", "GITHUB-APPS-01": "A0",
     "GITHUB-SECRETS-01": "A0", "GITHUB-VARS-01": "A0", "GITHUB-REPOS-01": "A0",
     "GITHUB-PROJECT-01": "A0", "GITHUB-REPOS-02": "M0",
     "SERVER-01": "M0-01", "SERVER-02": "M0-02", "SERVER-03": "M0-05",
-    "DNS-01": "M0-03", "DNS-02": "M0-03", "FINAL-01": "M0", "FINAL-02": "M0",
+    "DNS-01": "M0-03", "DNS-02": "M0-02", "FINAL-01": "M0", "FINAL-02": "M0",
 }
+
+RESTRICTED_BASENAMES = {
+    ".DS_Store", ".env", "id_dsa", "id_ecdsa", "id_ed25519", "id_rsa", "id_xmss",
+}
+RESTRICTED_PARTS = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
+
+
+def restricted_tracked_path(name: str) -> bool:
+    parts = Path(name).parts
+    basename = parts[-1] if parts else ""
+    return (
+        any(part in RESTRICTED_PARTS for part in parts)
+        or basename in RESTRICTED_BASENAMES
+        or basename.startswith(".env.")
+        or basename.endswith((".pem", ".key", ".pyc", ".pyo"))
+    )
 
 
 def probe(runner: Runner, *args: str) -> str | None:
@@ -172,8 +188,7 @@ def repository_checks(ctx: Context) -> list[CheckResult]:
     for label, repo, valid in (("meta", root, layout_ok), ("kit", sibling, sibling_ok)):
         names = probe(runner, "git", "-C", str(repo), "ls-files", "-z") if valid else None
         clean = names is not None and not any(
-            part == ".DS_Store" or part == ".env" or part.startswith(".env.") or part.endswith((".pem", ".key"))
-            for name in names.split("\0") for part in name.split("/")
+            restricted_tracked_path(name) for name in names.split("\0") if name
         )
         checks.append(local(ctx, f"{label}-tracked-files", clean, "index clean" if clean else
                             "tracked restricted path" if names is not None else "index unavailable"))
@@ -304,7 +319,12 @@ def run_command(args: Sequence[str]) -> subprocess.CompletedProcess[str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    class ExitOneArgumentParser(argparse.ArgumentParser):
+        def error(self, message: str) -> None:
+            self.print_usage(__import__("sys").stderr)
+            self.exit(1, f"{self.prog}: error: {message}\n")
+
+    parser = ExitOneArgumentParser(description=__doc__)
     parser.add_argument("--phase", choices=PHASES, default="step-minus-one")
     parser.add_argument("--strict", action="store_true", help="require the full toolchain and Docker daemon")
     parser.add_argument("--issue", type=str.upper, choices=(*M0_DEPENDENCIES, *M1_LANGUAGES),

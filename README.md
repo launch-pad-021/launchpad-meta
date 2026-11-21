@@ -53,3 +53,16 @@ Everything an agent needs to plan, implement, review, deploy and operate Launchp
 ## Normative language
 **MUST / MUST NOT** = required; violating it fails review. **SHOULD** = default; deviations need a reason in the PR. **MAY** = optional.
 When two documents disagree, precedence is: `contracts/` > service spec > `03-conventions.md` > other specs. Agents MUST report any contradiction they find as an issue labelled `spec-bug` instead of guessing.
+
+## Local environment
+
+Step −1 prepares this repository as `launchpad-meta` and seeds a separate sibling `launchpad-agent-kit` before A0 begins.
+
+```bash
+make bootstrap          # inspect; no host changes
+make validate           # validate the spec pack and starter
+make preflight          # Step −1 readiness
+make preflight-a0       # A0 readiness, including owner actions
+```
+
+See the [local development runbook](docs/runbooks/local-development.md), the [human setup status](setup/human-setup-status.md), the [approved design](docs/superpowers/specs/2026-11-21-step-minus-one-environment-design.md), and the [implementation plan](docs/superpowers/plans/2026-11-21-step-minus-one-environment.md).

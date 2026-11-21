@@ -172,11 +172,20 @@ class PreflightTest(unittest.TestCase):
         self.checklist.write_text(self.checklist.read_text().replace("[x] ACCOUNT-04:", "[ ] ACCOUNT-04:"))
         self.assertEqual(exit_code(self.results(phase="m0", issue="M0-02")), 2)
 
+    def test_m0_server_secret_inventory_requires_r2_and_cloudflare_credentials(self):
+        for ident in ("ACCOUNT-01", "ACCOUNT-03", "DNS-02"):
+            with self.subTest(ident=ident):
+                self.check_all()
+                self.checklist.write_text(
+                    self.checklist.read_text().replace(f"[x] {ident}:", f"[ ] {ident}:")
+                )
+                self.assertEqual(exit_code(self.results(phase="m0", issue="M0-02")), 2)
+
     def test_bad_issue_or_flag_combination_fails_closed(self):
         for args in (["--phase", "m1", "--issue", "M1-77"], ["--phase", "m1", "--issue", "M0-01"],
                      ["--phase", "m1", "--container-drill"]):
             run = subprocess.run([ROOT / "scripts/preflight.sh", *args], capture_output=True)
-            self.assertNotEqual(run.returncode, 0)
+            self.assertEqual(run.returncode, 1)
             self.assertIn(b"usage", run.stderr)
 
     def test_invalid_status_copy_is_local_failure(self):
@@ -199,6 +208,17 @@ class PreflightTest(unittest.TestCase):
                 git(repo, "add", "-f", "--", str(file))
                 self.assertEqual(exit_code(self.results()), 1)
                 git(repo, "rm", "--cached", str(file))
+
+    def test_git_index_hygiene_rejects_openssh_keys_and_generated_noise(self):
+        for repo in (self.root, self.sibling):
+            for name in ("id_ed25519", "id_rsa", "__pycache__/tracked.pyc", ".pytest_cache/state"):
+                with self.subTest(repo=repo.name, name=name):
+                    file = repo / name
+                    file.parent.mkdir(exist_ok=True, parents=True)
+                    file.touch()
+                    git(repo, "add", "-f", "--", str(file))
+                    self.assertEqual(exit_code(self.results()), 1)
+                    git(repo, "rm", "--cached", str(file))
 
     def test_validation_and_sibling_risk_tests_are_blocking(self):
         for command in (str(self.root / "scripts/validate-spec-pack.sh"), ("uv", "run")):
