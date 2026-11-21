@@ -61,10 +61,13 @@ class PreflightTest(unittest.TestCase):
         self.versions = VERSIONS.copy()
         self.failed = set()
         self.risk_summary = "16 passed in 0.12s"
+        self.commands = []
+        self.offline_risk_failure = False
         self.context = Context(self.root, self.sibling, "step-minus-one", False, {}, self.command)
 
     def command(self, args):
         args = tuple(map(str, args))
+        self.commands.append(args)
         if args[0] in self.failed or args[:2] in self.failed:
             return subprocess.CompletedProcess(args, 1, "private-stdout", "private-stderr")
         if args in self.versions:
@@ -72,6 +75,8 @@ class PreflightTest(unittest.TestCase):
         if args[:2] == ("git", "-C"):
             return subprocess.run(args, capture_output=True, text=True)
         if args[:2] == ("uv", "run"):
+            if self.offline_risk_failure and "--offline" in args:
+                return subprocess.CompletedProcess(args, 1, "", "cache miss")
             return subprocess.CompletedProcess(args, 0, self.risk_summary, "private-stderr")
         if (args[:2] in {("gh", "auth"), ("docker", "info")} or
                 args[0] == str(self.root / "scripts/validate-spec-pack.sh")):
@@ -191,7 +196,8 @@ class PreflightTest(unittest.TestCase):
     def test_invalid_status_copy_is_local_failure(self):
         original = self.checklist.read_text()
         for value in (original + "\n- [x] GITHUB-01: duplicate\n", original.replace("GITHUB-01:", "BAD-01:"),
-                      original.replace("[ ] GITHUB-01:", "[?] GITHUB-01:"), original + "\n* [X] bogus\n"):
+                      original.replace("- [x] GITHUB-01:", "- [?] GITHUB-01:"),
+                      original + "\n* [X] bogus\n"):
             self.checklist.write_text(value)
             self.assertEqual(exit_code(self.results()), 1)
         self.checklist.unlink()
@@ -224,6 +230,20 @@ class PreflightTest(unittest.TestCase):
         for command in (str(self.root / "scripts/validate-spec-pack.sh"), ("uv", "run")):
             self.failed = {command}
             self.assertEqual(exit_code(self.results()), 1)
+
+    def test_risk_tests_use_cache_before_network_and_fall_back_on_cache_miss(self):
+        self.assertEqual(exit_code(self.results()), 0)
+        uv_calls = [args for args in self.commands if args[:2] == ("uv", "run")]
+        self.assertEqual(len(uv_calls), 1)
+        self.assertIn("--offline", uv_calls[0])
+
+        self.commands.clear()
+        self.offline_risk_failure = True
+        self.assertEqual(exit_code(self.results()), 0)
+        uv_calls = [args for args in self.commands if args[:2] == ("uv", "run")]
+        self.assertEqual(len(uv_calls), 2)
+        self.assertIn("--offline", uv_calls[0])
+        self.assertNotIn("--offline", uv_calls[1])
 
     def test_collect_only_or_skipped_risk_suite_cannot_prove_readiness(self):
         for output in ("16 tests collected in 0.01s", "16 skipped in 0.02s"):
