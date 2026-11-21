@@ -1,0 +1,21 @@
+{
+  "event_id": "fixture-cycle-1",
+  "enabled": true,
+  "daily_budget_micros": 10000000,
+  "per_run_budget_micros": 1000000,
+  "spent_micros": 0,
+  "active": [],
+  "reservations": [],
+  "items": [
+    {
+      "id": "fixture-issue-1",
+      "status": "Ready",
+      "position": 1,
+      "labels": ["agent:task"],
+      "dependencies": [],
+      "fields_complete": true,
+      "attempts": 0,
+      "risk": "low"
+    }
+  ]
+}

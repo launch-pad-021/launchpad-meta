@@ -1,0 +1,49 @@
+name: Milestone planner
+
+on:
+  workflow_dispatch:
+    inputs:
+      milestone:
+        description: Approved delivery milestone (for example M0)
+        required: true
+        type: string
+      dry_run:
+        description: Validate without opening a plan PR
+        required: true
+        type: boolean
+        default: true
+
+permissions: {}
+
+concurrency:
+  group: planner-${{ inputs.milestone }}
+  cancel-in-progress: false
+
+jobs:
+  validate-request:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      AGENTS_ENABLED: ${{ vars.AGENTS_ENABLED }}
+      MILESTONE: ${{ inputs.milestone }}
+    steps:
+      - name: Validate trusted request
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ vars.LP_OWNER_LOGIN }}
+        run: |
+          test "$AGENTS_ENABLED" = "true"
+          test "$ACTOR" = "$OWNER"
+          case "$MILESTONE" in A0|M[0-9]|M1[0-2]|H1) ;; *) exit 2;; esac
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Record deterministic dry-run boundary
+        run: |
+          echo "Planner may read specs and propose plans; only the publisher may write a branch or PR." >> "$GITHUB_STEP_SUMMARY"
+          test "${{ inputs.dry_run }}" = "true" || {
+            echo "Live model/publisher requires the owner-configured planner App and provider credential." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }

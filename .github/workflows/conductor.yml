@@ -1,0 +1,79 @@
+name: Agent conductor
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  repository_dispatch:
+    types: [lp-issue-ready, lp-pr-merged, lp-agent-result]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Propose transitions without mutations
+        required: true
+        type: boolean
+        default: true
+      fixture:
+        description: Checked-in fixture name
+        required: false
+        type: string
+        default: cycles.json
+
+permissions: {}
+
+concurrency:
+  group: launchpad-conductor
+  cancel-in-progress: false
+
+jobs:
+  policy-dry-run:
+    name: Conductor policy dry run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      AGENTS_ENABLED: ${{ vars.AGENTS_ENABLED }}
+    steps:
+      - name: Fail closed at bootstrap gate
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REPOSITORY: ${{ github.repository }}
+          REF_NAME: ${{ github.ref }}
+        run: |
+          test "$REPOSITORY" = "launch-pad-021/launchpad-meta"
+          test "$REF_NAME" = "refs/heads/main"
+          if [ "$AGENTS_ENABLED" != "true" ]; then
+            echo "Agents are disabled or the live variable is unavailable." >> "$GITHUB_STEP_SUMMARY"
+            exit 78
+          fi
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Evaluate credential-free fixture
+        run: |
+          python3 scripts/agent_control.py --dry-run \
+            --snapshot tests/fixtures/agent_control/dry-run.json > conductor-result.json
+          python3 -m json.tool conductor-result.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: conductor-dry-run-${{ github.run_id }}-${{ github.run_attempt }}
+          path: conductor-result.json
+          retention-days: 30
+
+  apply-gate:
+    name: Live apply gate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == false }}
+    needs: policy-dry-run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Require owner-configured control-plane installation
+        env:
+          APP_ID: ${{ secrets.LP_CONTROL_APP_ID }}
+          APP_KEY: ${{ secrets.LP_CONTROL_APP_KEY }}
+          DAILY_BUDGET: ${{ vars.LP_AGENT_DAILY_BUDGET_USD }}
+        run: |
+          test -n "$APP_ID" && test -n "$APP_KEY" && test -n "$DAILY_BUDGET"
+          echo "Live apply remains fail-closed until the installation proves Variables read and organization Projects write." >> "$GITHUB_STEP_SUMMARY"
+          exit 1
