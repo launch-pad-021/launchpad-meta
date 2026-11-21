@@ -14,7 +14,7 @@ Headings give the first readiness gate. Pending items are visible from Step −1
 - [ ] GITHUB-SECRETS-01: Configure the repository-scoped organization secrets for agents, Apps and notifications.
 - [ ] GITHUB-VARS-01: Configure the organization variables for agent operation, budget, ownership and domain.
 - [x] GITHUB-REPOS-01: Create both control repositories and seed their contents.
-- [ ] GITHUB-PROJECT-01: Configure the organization Project fields and statuses.
+- [x] GITHUB-PROJECT-01: Configure the organization Project fields and statuses.
 
 ## M0 · After A0 acceptance, before the automated pipeline
 
