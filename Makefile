@@ -1,4 +1,4 @@
-.PHONY: bootstrap bootstrap-install preflight preflight-a0 validate test test-agent-kit
+.PHONY: bootstrap bootstrap-install preflight preflight-a0 preflight-strict validate test test-agent-kit
 
 bootstrap:
 	scripts/bootstrap-local.sh
@@ -12,6 +12,9 @@ preflight:
 preflight-a0:
 	scripts/preflight.sh --phase a0
 
+preflight-strict:
+	scripts/preflight.sh --phase step-minus-one --strict
+
 validate:
 	scripts/validate-spec-pack.sh
 
@@ -19,5 +22,4 @@ test:
 	python3 -m unittest discover -s tests -v
 
 test-agent-kit:
-	@test -d ../launchpad-agent-kit || { echo "Missing sibling repository: ../launchpad-agent-kit" >&2; exit 1; }
-	uv run --with pytest pytest -q ../launchpad-agent-kit/scripts/test_risk.py
+	scripts/preflight.sh --test-agent-kit
