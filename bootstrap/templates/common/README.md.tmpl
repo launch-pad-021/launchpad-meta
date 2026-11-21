@@ -1,0 +1,15 @@
+# {{REPO}}
+
+Seed repository for {{MILESTONE}}. Authoritative requirements: `launchpad-meta/{{SPEC}}`.
+
+## Purpose and owned data
+Product behavior and owned data are added by the milestone issue; this seed contains governance only.
+
+## Interfaces and events
+The milestone issue must document gRPC/HTTP APIs and events in/out before implementation.
+
+## Configuration
+Use `LP_*` variables and `*_FILE` secret references. Never commit secret values.
+
+## Development
+Run `make fmt`, `make lint`, `make test`, and `make test-integration`.

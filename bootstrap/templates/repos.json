@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "repositories": [
+    {"name":"launchpad-meta","mode":"audit","milestone":"A0","template":"control","spec":"specs/12-agentic-system.md"},
+    {"name":"launchpad-agent-kit","mode":"audit","milestone":"A0","template":"control","spec":"specs/12-agentic-system.md"},
+    {"name":"launchpad-infra","mode":"create","milestone":"M0","template":"shared","profile":"infra","spec":"specs/07-infrastructure.md"},
+    {"name":"launchpad-contracts","mode":"create","milestone":"M1-01","template":"shared","profile":"contracts","spec":"specs/04-contracts.md"},
+    {"name":"launchpad-conventions","mode":"create","milestone":"M1-02","template":"shared","profile":"docs","spec":"specs/03-conventions.md"},
+    {"name":"launchpad-go-kit","mode":"create","milestone":"M1-03","template":"go","profile":"library","spec":"specs/03-conventions.md"},
+    {"name":"launchpad-rust-kit","mode":"create","milestone":"M1-04","template":"rust","profile":"library","spec":"specs/03-conventions.md"},
+    {"name":"launchpad-ts-kit","mode":"create","milestone":"M1-05","template":"node","profile":"library","spec":"specs/03-conventions.md"},
+    {"name":"launchpad-e2e","mode":"create","milestone":"M1-06","template":"shared","profile":"e2e","spec":"specs/10-testing.md"},
+    {"name":"launchpad-identity","mode":"create","milestone":"M2-01","template":"go","profile":"service","spec":"specs/services/identity.md","migrations":"postgres"},
+    {"name":"launchpad-projects","mode":"create","milestone":"M2-02","template":"go","profile":"service","spec":"specs/services/projects.md","migrations":"postgres"},
+    {"name":"launchpad-gateway","mode":"create","milestone":"M2-03","template":"go","profile":"service","spec":"specs/services/gateway.md"},
+    {"name":"launchpad-dashboard","mode":"create","milestone":"M2-04","template":"next","profile":"service","spec":"specs/services/dashboard.md"},
+    {"name":"launchpad-scm","mode":"create","milestone":"M3-01","template":"node","profile":"service","spec":"specs/services/scm.md","migrations":"postgres"},
+    {"name":"launchpad-deployer","mode":"create","milestone":"M3-02","template":"go","profile":"service","spec":"specs/services/deployer.md","migrations":"postgres"},
+    {"name":"launchpad-builder","mode":"create","milestone":"M4-01","template":"go","profile":"service","spec":"specs/services/builder.md"},
+    {"name":"launchpad-logs","mode":"create","milestone":"M4-02","template":"go","profile":"service","spec":"specs/services/logs.md"},
+    {"name":"launchpad-runtime-agent","mode":"create","milestone":"M5-01","template":"go","profile":"service","spec":"specs/services/runtime-agent.md"},
+    {"name":"launchpad-router","mode":"create","milestone":"M5-02","template":"go","profile":"service","spec":"specs/services/router.md","migrations":"postgres"},
+    {"name":"launchpad-notifier","mode":"create","milestone":"M7-01","template":"node","profile":"service","spec":"specs/services/notifier.md","migrations":"postgres"},
+    {"name":"launchpad-cli","mode":"create","milestone":"M8-01","template":"go","profile":"cli","spec":"specs/services/cli.md"},
+    {"name":"launchpad-fixtures","mode":"create","milestone":"M8-04","template":"shared","profile":"fixtures","spec":"specs/10-testing.md"},
+    {"name":"launchpad-ingest","mode":"create","milestone":"M9-01","template":"rust","profile":"service","spec":"specs/services/ingest.md"},
+    {"name":"launchpad-processor","mode":"create","milestone":"M10-01","template":"rust","profile":"service","spec":"specs/services/processor.md"},
+    {"name":"launchpad-analytics","mode":"create","milestone":"M11-01","template":"python","profile":"service","spec":"specs/services/analytics.md"}
+  ]
+}
