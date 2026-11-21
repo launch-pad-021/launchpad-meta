@@ -32,14 +32,41 @@ jobs:
         with:
           persist-credentials: false
       - name: Validate credential-free publisher boundary
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         run: |
           printf '[]\n' | python3 scripts/weekly_audits.py > audit-findings.json
-          test "${{ github.event_name != 'workflow_dispatch' || inputs.dry_run }}" = "true" || {
-            echo "Live auditors require budget leases, provider credentials, and a scoped issue publisher." >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          }
+      - id: read-token
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          app-id: ${{ secrets.LP_CONTROL_APP_ID }}
+          private-key: ${{ secrets.LP_CONTROL_APP_KEY }}
+          owner: ${{ vars.LP_ORG }}
+          permission-contents: read
+      - name: Collect typed governance findings
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
+        env:
+          GH_TOKEN: ${{ steps.read-token.outputs.token }}
+          LP_ORG: ${{ vars.LP_ORG }}
+        run: |
+          python3 scripts/collect_audits.py | python3 scripts/weekly_audits.py > audit-findings.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: weekly-audits-${{ github.run_id }}-${{ github.run_attempt }}
           path: audit-findings.json
           retention-days: 30
+      - id: app-token
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          app-id: ${{ secrets.LP_CONTROL_APP_ID }}
+          private-key: ${{ secrets.LP_CONTROL_APP_KEY }}
+          owner: ${{ vars.LP_ORG }}
+          repositories: launchpad-meta
+          permission-issues: write
+      - name: Publish deduplicated findings
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          LP_ORG: ${{ vars.LP_ORG }}
+        run: python3 scripts/github_publish.py --org "$LP_ORG" audits audit-findings.json

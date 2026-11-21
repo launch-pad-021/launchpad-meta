@@ -43,7 +43,88 @@ jobs:
       - name: Record deterministic dry-run boundary
         run: |
           echo "Planner may read specs and propose plans; only the publisher may write a branch or PR." >> "$GITHUB_STEP_SUMMARY"
-          test "${{ inputs.dry_run }}" = "true" || {
-            echo "Live model/publisher requires the owner-configured planner App and provider credential." >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          }
+  propose:
+    if: ${{ inputs.dry_run == false }}
+    needs: validate-request
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - id: read-token
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          app-id: ${{ secrets.LP_CONTROL_APP_ID }}
+          private-key: ${{ secrets.LP_CONTROL_APP_KEY }}
+          owner: ${{ vars.LP_ORG }}
+          repositories: launchpad-meta
+          permission-contents: read
+      - name: Require finite planner budget
+        env:
+          PLANNER_BUDGET_USD: ${{ vars.LP_PLANNER_BUDGET_USD }}
+        run: test -n "$PLANNER_BUDGET_USD"
+      - name: Produce read-only structured proposal
+        id: planner
+        uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ steps.read-token.outputs.token }}
+          prompt: >-
+            Read the trusted Launchpad specs and produce the complete ${{ inputs.milestone }}
+            task manifest. Do not modify files or GitHub. Every task must target one repository,
+            cite its spec context, include testable acceptance criteria, dependencies, risk,
+            out-of-scope and verification evidence.
+          claude_args: >-
+            --model sonnet --max-turns 15 --max-budget-usd ${{ vars.LP_PLANNER_BUDGET_USD }}
+            --tools Read,Grep,Glob --allowedTools Read,Grep,Glob --output-format json
+            --json-schema '{"type":"object","required":["version","milestone","tasks"],"properties":{"version":{"const":1},"milestone":{"type":"string"},"tasks":{"type":"array","minItems":1,"items":{"type":"object","required":["id","repo","depends_on","context","acceptance_criteria","out_of_scope","risk","verification"],"properties":{"id":{"type":"string"},"repo":{"type":"string"},"depends_on":{"type":"array","items":{"type":"string"}},"context":{"type":"string"},"acceptance_criteria":{"type":"array","items":{"type":"string"}},"out_of_scope":{"type":"string"},"risk":{"enum":["low","medium","high"]},"verification":{"type":"array","items":{"type":"string"}}}}}}}'
+          allow_fork_prs: "false"
+          show_full_output: "false"
+      - name: Validate model output as data
+        env:
+          PLAN_JSON: ${{ steps.planner.outputs.structured_output }}
+          PLANNER_CONCLUSION: ${{ steps.planner.outputs.conclusion }}
+          MILESTONE: ${{ inputs.milestone }}
+        run: |
+          test "$PLANNER_CONCLUSION" = "success"
+          mkdir -p plans/proposals
+          python3 -c 'import json,os,pathlib; value=json.loads(os.environ["PLAN_JSON"]); assert value["milestone"] == os.environ["MILESTONE"]; pathlib.Path("plans/proposals", os.environ["MILESTONE"] + ".json").write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")'
+          python3 scripts/planner.py "plans/proposals/${MILESTONE}.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: planner-proposal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: plans/proposals/${{ inputs.milestone }}.json
+          retention-days: 30
+  publish:
+    if: ${{ inputs.dry_run == false }}
+    needs: propose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: planner-proposal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: plans/proposals
+      - id: app-token
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          app-id: ${{ secrets.LP_CONTROL_APP_ID }}
+          private-key: ${{ secrets.LP_CONTROL_APP_KEY }}
+          owner: ${{ vars.LP_ORG }}
+          repositories: launchpad-meta
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Validate and publish the deterministic proposal
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          LP_ORG: ${{ vars.LP_ORG }}
+          MILESTONE: ${{ inputs.milestone }}
+        run: python3 scripts/github_publish.py --org "$LP_ORG" plan "plans/proposals/${MILESTONE}.json"
