@@ -2,6 +2,9 @@
 AGENTS.md	<n>	Milestone command example	M1
 CLAUDE.md	<n>	Milestone command example	M1
 README.md	<service>	Service spec path notation	M1
+.github/pull_request_template.md	<issue>	Issue number for the live PR template	M1
+.github/pull_request_template.md	<!-- (?:What and why, 2-4 sentences\.|Reversible assumptions only\.|New spans / metrics / log fields\.|Issues to file\.|git diff --stat summary) -->	Author guidance for the live PR template	M1
+.github/ISSUE_TEMPLATE/agent-task.yml	<(?:repo-short|task)>	Issue title fields in the live task template	M1
 bootstrap/KICKOFF.md	<org>	Owner supplies the GitHub organization when cloning	A0
 bootstrap/KICKOFF.md	<n>	Issue, PR, and milestone command examples	M1
 bootstrap/agent-kit/README.md	<skill>	Plugin skill invocation example	M1

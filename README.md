@@ -66,3 +66,13 @@ make preflight-a0       # A0 readiness, including owner actions
 ```
 
 See the [local development runbook](docs/runbooks/local-development.md), the [human setup status](setup/human-setup-status.md), the [approved design](docs/superpowers/specs/2026-11-21-step-minus-one-environment-design.md), and the [implementation plan](docs/superpowers/plans/2026-11-21-step-minus-one-environment.md).
+
+## GitHub project setup
+
+Inspect the label and organization project reconciliation without changing GitHub:
+
+```bash
+scripts/setup-project.sh --org launch-pad-021
+```
+
+The default is a dry run. After reviewing its output, add `--apply` to reconcile both control repositories and the Launchpad project. The authenticated GitHub CLI token needs `admin:org` and `project` scopes. The command validates the organization against the local organization variable, uses idempotent label updates, preserves GitHub's built-in Milestone and Repository fields, and never prints command output that could contain credentials.
